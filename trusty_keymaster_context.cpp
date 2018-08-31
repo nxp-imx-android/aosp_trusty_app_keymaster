@@ -186,12 +186,18 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
             hw_enforced->push_back(entry);
             break;
 
-        case KM_TAG_USER_AUTH_TYPE:
-            if (entry.enumerated == HW_AUTH_PASSWORD)
-                hw_enforced->push_back(entry);
-            else
-                sw_enforced->push_back(entry);
-            break;
+        case KM_TAG_USER_AUTH_TYPE: {
+            keymaster_key_param_t elem = entry;
+
+            // This implementation does support TEE enforced password auth
+            elem.enumerated = entry.enumerated & HW_AUTH_PASSWORD;
+
+#if TEE_FINGERPRINT_AUTH_SUPPORTED
+            // If HW_AUTH_FINGERPRINT is supported it needs to be included too
+            elem.enumerates |= entry.enumerated & HW_AUTH_FINGERPRINT;
+#endif
+            hw_enforced->push_back(elem);
+        } break;
 
         case KM_TAG_ACTIVE_DATETIME:
         case KM_TAG_ORIGINATION_EXPIRE_DATETIME:
