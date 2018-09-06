@@ -61,17 +61,7 @@ struct Certificate {
 
 class SecureStorageManager {
 public:
-    static SecureStorageManager* get_instance() {
-        static SecureStorageManager instance;
-        if (instance.session_handle_ == STORAGE_INVALID_SESSION) {
-            storage_open_session(&instance.session_handle_,
-                                 STORAGE_CLIENT_TP_PORT);
-            if (instance.session_handle_ == STORAGE_INVALID_SESSION) {
-                return nullptr;
-            }
-        }
-        return &instance;
-    }
+    static SecureStorageManager* get_instance(bool translate_format = true);
 
     /**
      * These functions implement key and certificate chain storage on top
@@ -202,29 +192,75 @@ public:
      */
     keymaster_error_t DeleteAllAttestationData();
 
+#ifdef KEYMASTER_LEGACY_FORMAT
+
+    /**
+     * Deprecated, for unit tests only.
+     */
+    keymaster_error_t LegacyWriteKeyToStorage(AttestationKeySlot key_slot,
+                                              const uint8_t* key,
+                                              uint32_t key_size);
+    /**
+     * Deprecated, for unit tests only.
+     */
+    keymaster_error_t LegacyWriteCertToStorage(AttestationKeySlot key_slot,
+                                               const uint8_t* cert,
+                                               uint32_t cert_size,
+                                               uint32_t index);
+    /**
+     * Deprecated, for unit tests only.
+     */
+    keymaster_error_t LegacyWriteAttestationUuid(
+            const uint8_t attestation_uuid[kAttestationUuidSize]);
+    /**
+     * Deprecated, for unit tests only.
+     */
+    keymaster_error_t LegacySetProductId(
+            const uint8_t product_id[kProductIdSize]);
+#endif  // #define KEYMASTER_LEGACY_FORMAT
+
 private:
     bool SecureStorageGetFileSize(const char* filename, uint64_t* size);
     bool SecureStorageDeleteFile(const char* filename);
     keymaster_error_t ReadKeymasterAttributes(
             KeymasterAttributes** km_attributes_p);
     keymaster_error_t WriteKeymasterAttributes(
-            const KeymasterAttributes* km_attributes);
+            const KeymasterAttributes* km_attributes,
+            bool commit);
     keymaster_error_t ReadAttestationKey(AttestationKeySlot key_slot,
                                          AttestationKey** attestation_key_p);
-    keymaster_error_t WriteAttestationKey(
-            AttestationKeySlot key_slot,
-            const AttestationKey* attestation_key);
+    keymaster_error_t WriteAttestationKey(AttestationKeySlot key_slot,
+                                          const AttestationKey* attestation_key,
+                                          bool commit);
     keymaster_error_t EncodeToFile(const pb_field_t fields[],
                                    const void* dest_struct,
-                                   const char filename[]);
+                                   const char filename[],
+                                   bool commit);
     keymaster_error_t DecodeFromFile(const pb_field_t fields[],
                                      void* dest_struct,
                                      const char filename[]);
+    /**
+     * Translate file format from key/cert per file to new protobuf format.
+     */
+    keymaster_error_t TranslateLegacyFormat();
+
+    int StorageOpenSession(const char* type);
     void CloseSession();
 
     SecureStorageManager();
     ~SecureStorageManager();
     storage_session_t session_handle_;
+
+#ifdef KEYMASTER_LEGACY_FORMAT
+    keymaster_error_t LegacySecureStorageRead(const char* filename,
+                                              void* data,
+                                              uint32_t* size,
+                                              uint32_t max_size);
+    keymaster_error_t LegacySecureStorageWrite(const char* filename,
+                                               const uint8_t* data,
+                                               uint32_t data_size);
+    bool legacy_format = true;
+#endif  // #define KEYMASTER_LEGACY_FORMAT
 };
 
 }  // namespace keymaster

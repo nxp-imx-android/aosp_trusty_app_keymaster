@@ -31,10 +31,19 @@
 
 namespace keymaster {
 
-// Name of the attestation key file is kAttestKeyPrefix.%algorithm.
-const char* kAttestKeyPrefix = "AttestKey";
+// Name of the attestation key file is kAttestKeyCertPrefix.%algorithm. This key
+// file stores key and certificate chain in a protobuf format.
+const char* kAttestKeyCertPrefix = "AttestKeyCert";
+// Name of the legacy attestation key file prefix.
+const char* kLegacyAttestKeyPrefix = "AttestKey.";
+// Name of the legacy certificate file prefix.
+const char* kLegacyAttestCertPrefix = "AttestCert.";
 
+// Name of the file to store keymaster attributes in a protobuf format.
 const char* kAttributeFileName = "Attribute";
+// Name of the legacy keymaster attribute files.
+const char* kLegacyAttestUuidFileName = "AttestUuid";
+const char* kLegacyProductIdFileName = "ProductId";
 
 // Maximum file name size.
 static const int kStorageIdLengthMax = 64;
@@ -87,6 +96,30 @@ private:
     file_handle_t file_handle = 0;
 };
 
+SecureStorageManager* SecureStorageManager::get_instance(
+        bool translate_format) {
+    static SecureStorageManager instance;
+    if (instance.session_handle_ == STORAGE_INVALID_SESSION) {
+        storage_open_session(&instance.session_handle_, STORAGE_CLIENT_TP_PORT);
+        if (instance.session_handle_ == STORAGE_INVALID_SESSION) {
+            return nullptr;
+        }
+    }
+#ifdef KEYMASTER_LEGACY_FORMAT
+    if (translate_format && instance.legacy_format) {
+        keymaster_error_t err = instance.TranslateLegacyFormat();
+        if (err != KM_ERROR_OK) {
+            LOG_E("Failed to translate legacy file format!", 0);
+            instance.CloseSession();
+            return nullptr;
+        } else {
+            instance.legacy_format = false;
+        }
+    }
+#endif  // #ifdef KEYMASTER_LEGACY_FORMAT
+    return &instance;
+}
+
 keymaster_error_t SecureStorageManager::WriteKeyToStorage(
         AttestationKeySlot key_slot,
         const uint8_t* key,
@@ -105,7 +138,7 @@ keymaster_error_t SecureStorageManager::WriteKeyToStorage(
     memcpy(attestation_key->key.bytes, key, key_size);
     attestation_key->key.size = key_size;
 
-    err = WriteAttestationKey(key_slot, attestation_key.get());
+    err = WriteAttestationKey(key_slot, attestation_key.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -181,7 +214,7 @@ keymaster_error_t SecureStorageManager::WriteCertToStorage(
     attestation_key->certs[index].content.size = cert_size;
     memcpy(attestation_key->certs[index].content.bytes, cert, cert_size);
 
-    err = WriteAttestationKey(key_slot, attestation_key.get());
+    err = WriteAttestationKey(key_slot, attestation_key.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -239,7 +272,7 @@ keymaster_error_t SecureStorageManager::DeleteCertChainFromStorage(
     UniquePtr<AttestationKey> attestation_key(attestation_key_p);
     attestation_key->certs_count = 0;
 
-    err = WriteAttestationKey(key_slot, attestation_key.get());
+    err = WriteAttestationKey(key_slot, attestation_key.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -311,7 +344,7 @@ keymaster_error_t SecureStorageManager::WriteAtapKeyAndCertsToStorage(
     }
     attestation_key->certs_count = cert_chain->entry_count;
     keymaster_error_t err =
-            WriteAttestationKey(key_slot, attestation_key.get());
+            WriteAttestationKey(key_slot, attestation_key.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -321,7 +354,7 @@ keymaster_error_t SecureStorageManager::WriteAtapKeyAndCertsToStorage(
 keymaster_error_t SecureStorageManager::DeleteKey(AttestationKeySlot key_slot,
                                                   bool commit) {
     char key_file[kStorageIdLengthMax];
-    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kAttestKeyPrefix,
+    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kAttestKeyCertPrefix,
              GetKeySlotStr(key_slot));
     int rc = storage_delete_file(session_handle_, key_file,
                                  commit ? STORAGE_OP_COMPLETE : 0);
@@ -356,9 +389,10 @@ keymaster_error_t SecureStorageManager::ReadKeymasterAttributes(
 }
 
 keymaster_error_t SecureStorageManager::WriteKeymasterAttributes(
-        const KeymasterAttributes* km_attributes) {
+        const KeymasterAttributes* km_attributes,
+        bool commit) {
     return EncodeToFile(KeymasterAttributes_fields, km_attributes,
-                        kAttributeFileName);
+                        kAttributeFileName, commit);
 }
 
 keymaster_error_t SecureStorageManager::ReadAttestationUuid(
@@ -392,7 +426,7 @@ keymaster_error_t SecureStorageManager::WriteAttestationUuid(
     km_attributes->has_uuid = true;
     km_attributes->uuid.size = kAttestationUuidSize;
     memcpy(km_attributes->uuid.bytes, attestation_uuid, kAttestationUuidSize);
-    err = WriteKeymasterAttributes(km_attributes.get());
+    err = WriteKeymasterAttributes(km_attributes.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -408,7 +442,7 @@ keymaster_error_t SecureStorageManager::DeleteAttestationUuid() {
     }
     UniquePtr<KeymasterAttributes> km_attributes(km_attributes_p);
     km_attributes->has_uuid = false;
-    err = WriteKeymasterAttributes(km_attributes.get());
+    err = WriteKeymasterAttributes(km_attributes.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -433,7 +467,7 @@ keymaster_error_t SecureStorageManager::SetProductId(
     km_attributes->has_product_id = true;
     km_attributes->product_id.size = kProductIdSize;
     memcpy(km_attributes->product_id.bytes, product_id, kProductIdSize);
-    err = WriteKeymasterAttributes(km_attributes.get());
+    err = WriteKeymasterAttributes(km_attributes.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -468,7 +502,7 @@ keymaster_error_t SecureStorageManager::DeleteProductId() {
     }
     UniquePtr<KeymasterAttributes> km_attributes(km_attributes_p);
     km_attributes_p->has_product_id = false;
-    err = WriteKeymasterAttributes(km_attributes.get());
+    err = WriteKeymasterAttributes(km_attributes.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }
@@ -503,7 +537,7 @@ keymaster_error_t SecureStorageManager::ReadAttestationKey(
         AttestationKeySlot key_slot,
         AttestationKey** attestation_key_p) {
     char key_file[kStorageIdLengthMax];
-    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kAttestKeyPrefix,
+    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kAttestKeyCertPrefix,
              GetKeySlotStr(key_slot));
 
     UniquePtr<AttestationKey> attestation_key(
@@ -523,16 +557,21 @@ keymaster_error_t SecureStorageManager::ReadAttestationKey(
 
 keymaster_error_t SecureStorageManager::WriteAttestationKey(
         AttestationKeySlot key_slot,
-        const AttestationKey* attestation_key) {
+        const AttestationKey* attestation_key,
+        bool commit) {
     char key_file[kStorageIdLengthMax];
-    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kAttestKeyPrefix,
+    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kAttestKeyCertPrefix,
              GetKeySlotStr(key_slot));
-    return EncodeToFile(AttestationKey_fields, attestation_key, key_file);
+
+    return EncodeToFile(AttestationKey_fields, attestation_key, key_file,
+                        commit);
 }
 
 void SecureStorageManager::CloseSession() {
-    storage_close_session(session_handle_);
-    session_handle_ = STORAGE_INVALID_SESSION;
+    if (session_handle_ != STORAGE_INVALID_SESSION) {
+        storage_close_session(session_handle_);
+        session_handle_ = STORAGE_INVALID_SESSION;
+    }
 }
 
 struct FileStatus {
@@ -574,7 +613,8 @@ bool read_from_file_callback(pb_istream_t* stream, uint8_t* buf, size_t count) {
 
 keymaster_error_t SecureStorageManager::EncodeToFile(const pb_field_t fields[],
                                                      const void* dest_struct,
-                                                     const char filename[]) {
+                                                     const char filename[],
+                                                     bool commit) {
     FileCloser file;
     int rc = file.open_file(
             session_handle_, filename,
@@ -593,12 +633,15 @@ keymaster_error_t SecureStorageManager::EncodeToFile(const pb_field_t fields[],
         storage_end_transaction(session_handle_, false);
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
-    /* Commit the write. */
-    rc = storage_end_transaction(session_handle_, true);
-    if (rc < 0) {
-        LOG_E("Error: failed to commit write transaction for file '%s': %d\n",
-              filename, rc);
-        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    if (commit) {
+        /* Commit the write. */
+        rc = storage_end_transaction(session_handle_, true);
+        if (rc < 0) {
+            LOG_E("Error: failed to commit write transaction for file '%s': %d"
+                  "\n",
+                  filename, rc);
+            return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        }
     }
     return KM_ERROR_OK;
 }
@@ -633,6 +676,222 @@ keymaster_error_t SecureStorageManager::DecodeFromFile(
     }
     return KM_ERROR_OK;
 }
+
+#ifdef KEYMASTER_LEGACY_FORMAT
+
+keymaster_error_t SecureStorageManager::TranslateLegacyFormat() {
+    FileCloser file;
+    int rc = file.open_file(session_handle_, kAttributeFileName, 0, 0);
+    if (rc == NO_ERROR) {
+        // New attribute file exists, nothing to do.
+        return KM_ERROR_OK;
+    }
+    AttestationKeySlot key_slots[] = {
+            AttestationKeySlot::kRsa,        AttestationKeySlot::kEcdsa,
+            AttestationKeySlot::kEddsa,      AttestationKeySlot::kEpid,
+            AttestationKeySlot::kClaimable0, AttestationKeySlot::kSomRsa,
+            AttestationKeySlot::kSomEcdsa,   AttestationKeySlot::kSomEddsa,
+            AttestationKeySlot::kSomEpid};
+    char key_file[kStorageIdLengthMax];
+    char cert_file[kStorageIdLengthMax];
+    uint32_t key_size;
+    uint32_t cert_size;
+    keymaster_error_t err;
+    for (size_t i = 0; i < sizeof(key_slots) / sizeof(int); i++) {
+        AttestationKeySlot key_slot = key_slots[i];
+        UniquePtr<AttestationKey> attestation_key(
+                new AttestationKey(AttestationKey_init_zero));
+        snprintf(key_file, kStorageIdLengthMax, "%s.%s", kLegacyAttestKeyPrefix,
+                 GetKeySlotStr(key_slot));
+        err = LegacySecureStorageRead(key_file, attestation_key->key.bytes,
+                                      &key_size, kKeySizeMax);
+        if (err != KM_ERROR_OK) {
+            return err;
+        }
+        if (key_size == 0) {
+            // Legacy key file for this key slot is not found.
+            continue;
+        }
+        attestation_key->key.size = key_size;
+        attestation_key->has_key = true;
+        // Do not commit the delete.
+        rc = storage_delete_file(session_handle_, key_file, 0);
+        if (rc < 0) {
+            return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        }
+        for (int index = 0; index < kMaxCertChainLength; index++) {
+            snprintf(cert_file, kStorageIdLengthMax, "%s.%s.%d",
+                     kLegacyAttestCertPrefix, GetKeySlotStr(key_slot), index);
+            err = LegacySecureStorageRead(
+                    cert_file, attestation_key->certs[index].content.bytes,
+                    &cert_size, kCertSizeMax);
+            if (err != KM_ERROR_OK) {
+                return err;
+            }
+            if (cert_size == 0) {
+                // One cert does not exist, no need to continue reading.
+                break;
+            }
+            attestation_key->certs[index].content.size = cert_size;
+            attestation_key->certs_count = index + 1;
+            // Do not commit the delete.
+            rc = storage_delete_file(session_handle_, cert_file, 0);
+            if (rc < 0) {
+                return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+            }
+        }
+        // Do not commit the write.
+        keymaster_error_t err =
+                WriteAttestationKey(key_slot, attestation_key.get(), false);
+        if (err != KM_ERROR_OK) {
+            LOG_E("Failed to write attestation key for slot: %d: %d\n",
+                  key_slot, err);
+            return err;
+        }
+    }
+
+    UniquePtr<KeymasterAttributes> km_attributes(
+            new KeymasterAttributes(KeymasterAttributes_init_zero));
+    uint32_t product_id_size;
+    err = LegacySecureStorageRead(kLegacyProductIdFileName,
+                                  km_attributes->product_id.bytes,
+                                  &product_id_size, kProductIdSize);
+    if (err != KM_ERROR_OK) {
+        return err;
+    }
+    if (product_id_size != 0) {
+        km_attributes->has_product_id = true;
+        km_attributes->product_id.size = product_id_size;
+        rc = storage_delete_file(session_handle_, kLegacyProductIdFileName, 0);
+        if (rc < 0) {
+            return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        }
+    }
+    uint32_t uuid_size;
+    err = LegacySecureStorageRead(kLegacyAttestUuidFileName,
+                                  km_attributes->uuid.bytes, &uuid_size,
+                                  kAttestationUuidSize);
+    if (err != KM_ERROR_OK) {
+        return err;
+    }
+    if (uuid_size != 0) {
+        km_attributes->has_uuid = true;
+        km_attributes->uuid.size = uuid_size;
+        rc = storage_delete_file(session_handle_, kLegacyAttestUuidFileName, 0);
+        if (rc < 0) {
+            return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        }
+    }
+    err = WriteKeymasterAttributes(km_attributes.get(), false);
+    if (err != KM_ERROR_OK) {
+        return err;
+    }
+
+    // Commit the pending transactions.
+    rc = storage_end_transaction(session_handle_, STORAGE_OP_COMPLETE);
+    if (rc < 0) {
+        LOG_E("Error: failed to commit write transaction to translate file"
+              " format.\n",
+              0);
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t SecureStorageManager::LegacySecureStorageRead(
+        const char* filename,
+        void* data,
+        uint32_t* size,
+        uint32_t max_size) {
+    FileCloser file;
+    uint64_t file_size;
+    int rc = file.open_file(session_handle_, filename, 0, 0);
+    if (rc == ERR_NOT_FOUND) {
+        *size = 0;
+        return KM_ERROR_OK;
+    }
+    rc = storage_get_file_size(file.get_file_handle(), &file_size);
+    if (rc < 0) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    if (file_size > static_cast<uint64_t>(max_size)) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    *size = static_cast<uint32_t>(file_size);
+    rc = storage_read(file.get_file_handle(), 0, data, file_size);
+    if (rc < 0) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    if (static_cast<uint32_t>(rc) < *size) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t SecureStorageManager::LegacySecureStorageWrite(
+        const char* filename,
+        const uint8_t* data,
+        uint32_t data_size) {
+    FileCloser file;
+    int rc = file.open_file(
+            session_handle_, filename,
+            STORAGE_FILE_OPEN_CREATE | STORAGE_FILE_OPEN_TRUNCATE, 0);
+    if (rc < 0) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    rc = storage_write(file.get_file_handle(), 0, data, data_size,
+                       STORAGE_OP_COMPLETE);
+    if (rc < 0) {
+        LOG_E("Error: [%d] writing storage object '%s'", rc, filename);
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    if (static_cast<uint32_t>(rc) < data_size) {
+        LOG_E("Error: invalid object size [%d] from '%s'", rc, filename);
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+
+    return KM_ERROR_OK;
+}
+
+// Deprecated implementation for writing key to storage, for backward
+// compatibility tests only.
+keymaster_error_t SecureStorageManager::LegacyWriteKeyToStorage(
+        AttestationKeySlot key_slot,
+        const uint8_t* key,
+        uint32_t key_size) {
+    char key_file[kStorageIdLengthMax];
+    snprintf(key_file, kStorageIdLengthMax, "%s.%s", kLegacyAttestKeyPrefix,
+             GetKeySlotStr(key_slot));
+    return LegacySecureStorageWrite(key_file, key, key_size);
+}
+
+// Deprecated implementation for writing cert to storage, for backward
+// compatibility tests only.
+keymaster_error_t SecureStorageManager::LegacyWriteCertToStorage(
+        AttestationKeySlot key_slot,
+        const uint8_t* cert,
+        uint32_t cert_size,
+        uint32_t index) {
+    char cert_file[kStorageIdLengthMax];
+    snprintf(cert_file, kStorageIdLengthMax, "%s.%s.%d",
+             kLegacyAttestCertPrefix, GetKeySlotStr(key_slot), index);
+    return LegacySecureStorageWrite(cert_file, cert, cert_size);
+}
+
+// Deprecated, for unit tests only.
+keymaster_error_t SecureStorageManager::LegacyWriteAttestationUuid(
+        const uint8_t attestation_uuid[kAttestationUuidSize]) {
+    return LegacySecureStorageWrite(kLegacyAttestUuidFileName, attestation_uuid,
+                                    kAttestationUuidSize);
+}
+
+// Deprecated, for unit tests only.
+keymaster_error_t SecureStorageManager::LegacySetProductId(
+        const uint8_t product_id[kProductIdSize]) {
+    return LegacySecureStorageWrite(kLegacyProductIdFileName, product_id,
+                                    kProductIdSize);
+}
+#endif  // #ifdef KEYMASTER_LEGACY_FORMAT
 
 SecureStorageManager::SecureStorageManager() {
     session_handle_ = STORAGE_INVALID_SESSION;
