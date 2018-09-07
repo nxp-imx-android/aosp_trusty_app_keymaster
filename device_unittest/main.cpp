@@ -271,7 +271,6 @@ test_abort:
 }
 
 int main(void) {
-
     TLOGI("km_storage_test: running all\n");
 
     DeleteAttestationData();
