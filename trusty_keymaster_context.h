@@ -33,7 +33,6 @@ namespace keymaster {
 class KeyFactory;
 
 static const int kAuthTokenKeySize = 32;
-static const int kMaxCertChainLength = 3;
 
 class TrustyKeymasterContext : public KeymasterContext,
                                AttestationRecordContext,

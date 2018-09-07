@@ -1,4 +1,4 @@
-# Copyright (C) 2017 The Android Open Source Project
+# Copyright (C) 2018 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,38 +13,28 @@
 # limitations under the License.
 #
 
-LOCAL_DIR := $(GET_LOCAL_DIR)
+ATAP_DIR := $(TRUSTY_TOP)/system/iot/attestation/atap
 KEYMASTER_ROOT := system/keymaster
 KEYMASTER_DIR := trusty/user/app/keymaster
 PB_GEN_DIR := $(call TOBUILDDIR,proto)
-MODULE := $(LOCAL_DIR)
 
 include trusty/user/base/make/compile_proto.mk
 $(eval $(call compile_proto,$(KEYMASTER_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
 
-MODULE_SRCS += \
+HOST_TEST := keymaster_test
+
+HOST_SRCS += \
 	$(KEYMASTER_DIR)/secure_storage_manager.cpp \
-	$(LOCAL_DIR)/main.cpp \
-	$(LOCAL_DIR)/manifest.c \
+	$(KEYMASTER_DIR)/host_unittest/main.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/logger.cpp \
 	$(NANOPB_DEPS) \
 	$(NANOPB_GENERATED_C) \
+	$(ATAP_DIR)/libatap/atap_util.c \
+	$(ATAP_DIR)/libatap/atap_sysdeps_posix.c \
 
-MODULE_DEPS += \
-	trusty/user/base/lib/libc-trusty \
-	trusty/user/base/lib/libstdc++-trusty \
-	trusty/user/base/lib/rng \
-	trusty/user/base/lib/storage \
-
-MODULE_SRCDEPS += \
-	$(NANOPB_GENERATED_HEADER) \
-
-MODULE_COMPILEFLAGS += -DPB_FIELD_16BIT
-MODULE_COMPILEFLAGS += -DPB_NO_STATIC_ASSERT
-
-MODULE_INCLUDES := \
+HOST_INCLUDE_DIRS := \
 	$(KEYMASTER_ROOT) \
-	$(LOCAL_DIR) \
+	$(KEYMASTER_DIR)/host_unittest \
 	$(KEYMASTER_DIR) \
 	$(KEYMASTER_ROOT)/include \
 	hardware/libhardware/include \
@@ -52,7 +42,21 @@ MODULE_INCLUDES := \
 	lib/interface/storage/include \
 	$(NANOPB_DIR) \
 	$(PB_GEN_DIR) \
-	$(TRUSTY_TOP)/system/iot/attestation/atap \
+	$(ATAP_DIR) \
 
-include make/module.mk
+HOST_FLAGS := -Wpointer-arith \
+	-Wno-deprecated-declarations -fno-exceptions \
+	-DSTORAGE_FAKE \
+	-DPB_FIELD_16BIT \
+	-DPB_NO_STATIC_ASSERT \
 
+HOST_LIBS := \
+	stdc++ \
+
+# These rules are used to force .pb.h file to be generated before compiling
+# these files.
+$(KEYMASTER_DIR)/secure_storage_manager.cpp: $(NANOPB_GENERATED_HEADER)
+$(KEYMASTER_DIR)/host_unittest/main.cpp: $(NANOPB_GENERATED_HEADER)
+
+include trusty/user/app/storage/storage_mock/add_mock_storage.mk
+include make/host_test.mk

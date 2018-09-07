@@ -15,6 +15,7 @@
  */
 
 #include "trusty_keymaster.h"
+#include "secure_storage_manager.h"
 
 #include <uapi/err.h>
 
@@ -24,8 +25,6 @@
 // exceed 5k.
 const size_t kMaxCaResponseSize = 20000;
 #endif
-
-#include "secure_storage.h"
 
 namespace keymaster {
 
@@ -52,6 +51,12 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
     if (response == nullptr)
         return;
 
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
     size_t key_size = request.key_data.buffer_size();
     const uint8_t* key = request.key_data.begin();
     AttestationKeySlot key_slot;
@@ -71,12 +76,7 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
         response->error = KM_ERROR_INVALID_INPUT_LENGTH;
         return;
     }
-    bool exists;
-    response->error = AttestationKeyExists(key_slot, &exists);
-    if (response->error != KM_ERROR_OK) {
-        return;
-    }
-    response->error = WriteKeyToStorage(key_slot, key, key_size);
+    response->error = ss_manager->WriteKeyToStorage(key_slot, key, key_size);
 }
 
 void TrustyKeymaster::AppendAttestationCertChain(
@@ -84,6 +84,12 @@ void TrustyKeymaster::AppendAttestationCertChain(
         AppendAttestationCertChainResponse* response) {
     if (response == nullptr)
         return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
 
     size_t cert_size = request.cert_data.buffer_size();
     const uint8_t* cert = request.cert_data.begin();
@@ -104,27 +110,35 @@ void TrustyKeymaster::AppendAttestationCertChain(
     if (cert_size == 0) {
         return;
     }
-    uint32_t cert_chain_length;
-    if (ReadCertChainLength(key_slot, &cert_chain_length) != KM_ERROR_OK) {
+    uint32_t cert_chain_length = 0;
+    if (ss_manager->ReadCertChainLength(key_slot, &cert_chain_length) !=
+        KM_ERROR_OK) {
+        LOG_E("Failed to read cert chain length, initialize to 0.\n", 0);
         cert_chain_length = 0;
     }
-    response->error = KM_ERROR_UNKNOWN_ERROR;
     if (cert_chain_length >= kMaxCertChainLength) {
-        // Delete the cert chain when it hits max length
-        if (DeleteCertChain(key_slot) != KM_ERROR_OK) {
+        // Delete the cert chain when it hits max length.
+        keymaster_error_t err =
+                ss_manager->DeleteCertChainFromStorage(key_slot);
+        if (err != KM_ERROR_OK) {
+            LOG_E("Failed to delete cert chain.\n", 0);
+            response->error = err;
             return;
         }
-        // Validate that cert chain was actually deleted
-        if (ReadCertChainLength(key_slot, &cert_chain_length) != KM_ERROR_OK) {
+        err = ss_manager->ReadCertChainLength(key_slot, &cert_chain_length);
+        if (err != KM_ERROR_OK) {
+            LOG_E("Failed to read cert chain length.\n", 0);
+            response->error = err;
             return;
         }
         if (cert_chain_length != 0) {
-            LOG_E("Cert chain could not be deleted\n", 0);
+            LOG_E("Cert chain could not be deleted.\n", 0);
+            response->error = err;
             return;
         }
     }
-    response->error =
-            WriteCertToStorage(key_slot, cert, cert_size, cert_chain_length);
+    response->error = ss_manager->WriteCertToStorage(key_slot, cert, cert_size,
+                                                     cert_chain_length);
 }
 
 void TrustyKeymaster::AtapGetCaRequest(const AtapGetCaRequestRequest& request,
@@ -232,8 +246,14 @@ void TrustyKeymaster::AtapReadUuid(const AtapReadUuidRequest& request,
     if (response == nullptr)
         return;
 
-    uint8_t uuid[kAttestationUuidSize];
-    response->error = ReadAttestationUuid(uuid);
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    uint8_t uuid[kAttestationUuidSize]{};
+    response->error = ss_manager->ReadAttestationUuid(uuid);
 
     if (response->error == KM_ERROR_OK) {
         response->data.reserve(kAttestationUuidSize);
@@ -245,6 +265,12 @@ void TrustyKeymaster::AtapSetProductId(const AtapSetProductIdRequest& request,
                                        AtapSetProductIdResponse* response) {
     if (response == nullptr)
         return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
 
 #ifdef DISABLE_ATAP_SUPPORT
     // Not implemented.
@@ -258,7 +284,7 @@ void TrustyKeymaster::AtapSetProductId(const AtapSetProductIdRequest& request,
         response->error = KM_ERROR_INVALID_INPUT_LENGTH;
         return;
     }
-    response->error = SetProductId(product_id.begin());
+    response->error = ss_manager->SetProductId(product_id.begin());
 #endif
 }
 }  // namespace keymaster

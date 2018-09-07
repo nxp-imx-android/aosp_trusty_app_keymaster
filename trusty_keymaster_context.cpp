@@ -15,7 +15,7 @@
  */
 
 #include "trusty_keymaster_context.h"
-#include "secure_storage.h"
+#include "secure_storage_manager.h"
 
 #include <lib/hwkey/hwkey.h>
 #include <lib/rng/trusty_rng.h>
@@ -565,7 +565,13 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
         return {};
     }
 
-    auto result = ReadKeyFromStorage(key_slot, error);
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        LOG_E("Failed to open secure storage session.", 0);
+        *error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return {};
+    }
+    auto result = ss_manager->ReadKeyFromStorage(key_slot, error);
     if (*error != KM_ERROR_OK) {
         LOG_I("Failed to read attestation key from RPMB, falling back to test key",
               0);
@@ -580,7 +586,7 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
 }
 
 CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
-                                         keymaster_error_t* error) {
+                              keymaster_error_t* error) {
     CertChainPtr chain(new keymaster_cert_chain_t);
     if (!chain.get()) {
         *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -600,7 +606,13 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
     }
     memset(chain.get(), 0, sizeof(keymaster_cert_chain_t));
 
-    *error = ReadCertChainFromStorage(key_slot, chain.get());
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        LOG_E("Failed to open secure storage session.", 0);
+        *error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return {};
+    }
+    *error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
     if (*error != KM_ERROR_OK) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);

@@ -14,6 +14,10 @@
 #
 
 LOCAL_DIR := $(GET_LOCAL_DIR)
+PB_GEN_DIR := $(call TOBUILDDIR,proto)
+
+include trusty/user/base/make/compile_proto.mk
+$(eval $(call compile_proto,$(LOCAL_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
 
 MODULE := $(LOCAL_DIR)
 
@@ -60,13 +64,20 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/trusty_keymaster.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_enforcement.cpp \
-	$(LOCAL_DIR)/secure_storage.cpp
+	$(LOCAL_DIR)/secure_storage_manager.cpp \
+	$(NANOPB_DEPS) \
+	$(NANOPB_GENERATED_C) \
+
+MODULE_SRCDEPS += \
+	$(NANOPB_GENERATED_HEADER) \
 
 MODULE_INCLUDES := \
 	$(KEYMASTER_ROOT)/include \
 	$(KEYMASTER_ROOT) \
 	$(TRUSTY_TOP)/hardware/libhardware/include \
-	$(LOCAL_DIR)
+	$(LOCAL_DIR) \
+	$(NANOPB_DIR) \
+	$(PB_GEN_DIR) \
 
 MODULE_CPPFLAGS := -std=c++14 -fno-short-enums
 
@@ -76,7 +87,13 @@ MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__
 # Defining KEYMASTER_DEBUG will allow configure() to succeed without root of
 # trust from bootloader.
 #
-#MODULE_COMPILEFLAGS += -DKEYMASTER_DEBUG
+# MODULE_COMPILEFLAGS += -DKEYMASTER_DEBUG
+
+# Add support for nanopb tag numbers > 255 and fields larger than 255 bytes or
+# 255 array entries.
+MODULE_COMPILEFLAGS += -DPB_FIELD_16BIT
+# STATIC_ASSERT in pb.h might conflict with STATIC_ASSEET in compiler.h
+MODULE_COMPILEFLAGS += -DPB_NO_STATIC_ASSERT
 
 MODULE_DEPS += \
 	trusty/user/base/lib/libc-trusty \
@@ -90,3 +107,6 @@ include $(LOCAL_DIR)/atap/rules.mk
 include $(LOCAL_DIR)/ipc/rules.mk
 
 include make/module.mk
+
+# Include unit tests
+include trusty/user/app/keymaster/host_unittest/rules.mk

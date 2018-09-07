@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+import "nanopb.proto";
+
+message KeymasterAttributes {
+  optional bytes uuid = 1 [(nanopb).max_size=32];
+  optional bytes product_id = 2 [(nanopb).max_size=16];
+};
+
+message AttestationKey {
+  optional bytes key = 1 [(nanopb).max_size=2048];
+  repeated AttestationCert certs = 2 [(nanopb).max_count=3];
+};
+
+message AttestationCert {
+  required bytes content = 1 [(nanopb).max_size=2048];
+}

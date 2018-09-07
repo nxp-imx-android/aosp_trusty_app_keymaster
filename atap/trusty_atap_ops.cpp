@@ -22,10 +22,8 @@
  * SOFTWARE.
  */
 
-#include <keymaster/android_keymaster_utils.h>
-
-#include "secure_storage.h"
 #include "trusty_atap_ops.h"
+#include "secure_storage_manager.h"
 #include "trusty_logger.h"
 
 #include <UniquePtr.h>
@@ -63,14 +61,6 @@ AttestationKeySlot MapKeyTypeToSlot(const AtapKeyType atap_key_type) {
     return AttestationKeySlot::kInvalid;
 }
 
-void delete_km_certificate_chain(keymaster_cert_chain_t* cert_chain) {
-    if (!cert_chain)
-        return;
-    for (size_t i = 0; i < cert_chain->entry_count; ++i)
-        delete[] cert_chain->entries[i].data;
-    delete[] cert_chain->entries;
-}
-
 }  // namespace
 
 namespace keymaster {
@@ -79,6 +69,9 @@ struct EVP_PKEY_Delete {
     void operator()(EVP_PKEY* p) const { EVP_PKEY_free(p); }
 };
 typedef UniquePtr<EVP_PKEY, EVP_PKEY_Delete> Unique_EVP_PKEY;
+
+TrustyAtapOps::TrustyAtapOps() {}
+TrustyAtapOps::~TrustyAtapOps() {}
 
 struct PKCS8_PRIV_KEY_INFO_Delete {
     void operator()(PKCS8_PRIV_KEY_INFO* p) const {
@@ -95,12 +88,12 @@ struct EVP_MD_CTX_Delete {
 };
 typedef UniquePtr<EVP_MD_CTX, EVP_MD_CTX_Delete> Unique_EVP_MD_CTX;
 
-TrustyAtapOps::TrustyAtapOps() {}
-TrustyAtapOps::~TrustyAtapOps() {}
-
 AtapResult TrustyAtapOps::read_product_id(
         uint8_t product_id[ATAP_PRODUCT_ID_LEN]) {
-    if (ReadProductId(product_id) != KM_ERROR_OK) {
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr)
+        return ATAP_RESULT_ERROR_STORAGE;
+    if (ss_manager->ReadProductId(product_id) != KM_ERROR_OK) {
         /* If we can't get permanent attributes, set product id to the test
         product id (all zero). */
         LOG_E("Fail to read product id from storage, set as 0.", 0);
@@ -115,6 +108,9 @@ AtapResult TrustyAtapOps::get_auth_key_type(AtapKeyType* key_type) {
         return ATAP_RESULT_OK;
     }
     *key_type = ATAP_KEY_TYPE_NONE;
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr)
+        return ATAP_RESULT_ERROR_STORAGE;
     const AtapKeyType kAuthKeyTypes[3] = {ATAP_KEY_TYPE_EPID_SOM,
                                           ATAP_KEY_TYPE_RSA_SOM,
                                           ATAP_KEY_TYPE_ECDSA_SOM};
@@ -122,7 +118,8 @@ AtapResult TrustyAtapOps::get_auth_key_type(AtapKeyType* key_type) {
     for (size_t i = 0; i < (sizeof(kAuthKeyTypes) / sizeof(AtapKeyType)); i++) {
         AttestationKeySlot key_slot = MapKeyTypeToSlot(kAuthKeyTypes[i]);
         bool key_exists;
-        if (AttestationKeyExists(key_slot, &key_exists) != KM_ERROR_OK) {
+        if (ss_manager->AttestationKeyExists(key_slot, &key_exists) !=
+            KM_ERROR_OK) {
             return ATAP_RESULT_ERROR_STORAGE;
         }
         if (key_exists) {
@@ -138,44 +135,31 @@ AtapResult TrustyAtapOps::get_auth_key_type(AtapKeyType* key_type) {
 
 AtapResult TrustyAtapOps::read_auth_key_cert_chain(AtapCertChain* cert_chain) {
     AtapKeyType key_type;
-    get_auth_key_type(&key_type);
+    AtapResult atap_result = get_auth_key_type(&key_type);
+    if (atap_result != ATAP_RESULT_OK) {
+        LOG_E("Failed to get key type.", 0);
+        return atap_result;
+    }
     if (key_type == ATAP_KEY_TYPE_NONE) {
         return ATAP_RESULT_ERROR_UNSUPPORTED_OPERATION;
     }
-    keymaster_cert_chain_t km_cert_chain;
-
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        return ATAP_RESULT_ERROR_STORAGE;
+    }
     AttestationKeySlot key_slot = MapKeyTypeToSlot(key_type);
     keymaster_error_t result =
-            ReadCertChainFromStorage(key_slot, &km_cert_chain);
+            ss_manager->ReadAtapCertChainFromStorage(key_slot, cert_chain);
     if (result != KM_ERROR_OK) {
         LOG_E("Failed to read som cert chain from slot %d (err = %d)", key_slot,
               result);
-        delete_km_certificate_chain(&km_cert_chain);
         return ATAP_RESULT_ERROR_STORAGE;
     }
-    size_t entry_count = km_cert_chain.entry_count;
-    if (entry_count > ATAP_CERT_CHAIN_ENTRIES_MAX) {
-        delete_km_certificate_chain(&km_cert_chain);
+    if (cert_chain->entry_count > ATAP_CERT_CHAIN_ENTRIES_MAX) {
         LOG_E("Stored cert chain length is larger than the maximum cert chain length",
               0);
         return ATAP_RESULT_ERROR_CRYPTO;
     }
-    cert_chain->entry_count = entry_count;
-    for (size_t i = 0; i < entry_count; i++) {
-        AtapBlob* atap_entry = &(cert_chain->entries[i]);
-        keymaster_blob_t* km_entry = &(km_cert_chain.entries[i]);
-        size_t data_size = km_entry->data_length;
-        atap_entry->data_length = data_size;
-        atap_entry->data =
-                static_cast<uint8_t*>(atap_malloc(atap_entry->data_length));
-        if (atap_entry->data == NULL) {
-            LOG_E("Failed to allocate memory for cert data", 0);
-            delete_km_certificate_chain(&km_cert_chain);
-            return ATAP_RESULT_ERROR_STORAGE;
-        }
-        memcpy(atap_entry->data, km_entry->data, data_size);
-    }
-    delete_km_certificate_chain(&km_cert_chain);
     return ATAP_RESULT_OK;
 }
 
@@ -183,6 +167,9 @@ AtapResult TrustyAtapOps::write_attestation_key(
         AtapKeyType key_type,
         const AtapBlob* key,
         const AtapCertChain* cert_chain) {
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr)
+        return ATAP_RESULT_ERROR_STORAGE;
     AttestationKeySlot slot = MapKeyTypeToSlot(key_type);
     if (key_type == ATAP_KEY_TYPE_RSA_SOM ||
         key_type == ATAP_KEY_TYPE_ECDSA_SOM ||
@@ -194,20 +181,13 @@ AtapResult TrustyAtapOps::write_attestation_key(
     if (slot == AttestationKeySlot::kInvalid) {
         return ATAP_RESULT_ERROR_INVALID_INPUT;
     }
-    keymaster_error_t result =
-            WriteKeyToStorage(slot, key->data, key->data_length);
+
+    keymaster_error_t result = ss_manager->WriteAtapKeyAndCertsToStorage(
+            slot, key->data, key->data_length, cert_chain);
     if (result != KM_ERROR_OK) {
-        LOG_E("Failed to write key to slot %d (err = %d)", slot, result);
+        LOG_E("Failed to write key and certs to slot %d (err = %d)", slot,
+              result);
         return ATAP_RESULT_ERROR_STORAGE;
-    }
-    for (uint32_t i = 0; i < cert_chain->entry_count; ++i) {
-        result = WriteCertToStorage(slot, cert_chain->entries[i].data,
-                                    cert_chain->entries[i].data_length, i);
-        if (result != KM_ERROR_OK) {
-            LOG_E("Failed to write cert %d to slot %d (err = %d)", i, slot,
-                  result);
-            return ATAP_RESULT_ERROR_STORAGE;
-        }
     }
     return ATAP_RESULT_OK;
 }
@@ -226,7 +206,10 @@ AtapResult TrustyAtapOps::read_soc_global_key(
 
 AtapResult TrustyAtapOps::write_hex_uuid(
         const uint8_t uuid[ATAP_HEX_UUID_LEN]) {
-    if (KM_ERROR_OK != WriteAttestationUuid(uuid)) {
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr)
+        return ATAP_RESULT_ERROR_STORAGE;
+    if (ss_manager->WriteAttestationUuid(uuid) != KM_ERROR_OK) {
         return ATAP_RESULT_ERROR_STORAGE;
     }
     return ATAP_RESULT_OK;
@@ -238,14 +221,22 @@ AtapResult TrustyAtapOps::auth_key_sign(const uint8_t* nonce,
                                         uint32_t* sig_len) {
     AtapKeyType key_type;
     keymaster_error_t result = KM_ERROR_OK;
-    get_auth_key_type(&key_type);
+    AtapResult atap_result = get_auth_key_type(&key_type);
+    if (atap_result != ATAP_RESULT_OK) {
+        LOG_E("Failed to get key type", 0);
+        return atap_result;
+    }
     if (key_type == ATAP_KEY_TYPE_NONE) {
         return ATAP_RESULT_ERROR_UNSUPPORTED_OPERATION;
     }
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        return ATAP_RESULT_ERROR_STORAGE;
+    }
     AttestationKeySlot key_slot = MapKeyTypeToSlot(key_type);
 
-    auto key_blob = ReadKeyFromStorage(key_slot, &result);
-
+    KeymasterKeyBlob key_blob =
+            ss_manager->ReadKeyFromStorage(key_slot, &result);
     if (result != KM_ERROR_OK) {
         LOG_E("Failed to read som cert chain from slot %d (err = %d)", key_slot,
               result);
@@ -256,7 +247,6 @@ AtapResult TrustyAtapOps::auth_key_sign(const uint8_t* nonce,
 
     Unique_PKCS8_PRIV_KEY_INFO pkcs8(d2i_PKCS8_PRIV_KEY_INFO(
             NULL, &pkcs_priv_key_p, key_blob.key_material_size));
-
     if (!pkcs8.get()) {
         LOG_E("Error parsing pkcs8 format private key.", 0);
         return ATAP_RESULT_ERROR_INVALID_INPUT;
