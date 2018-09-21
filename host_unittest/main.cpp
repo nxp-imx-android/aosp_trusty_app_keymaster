@@ -82,6 +82,9 @@ using keymaster::SecureStorageManager;
 
 uint8_t* NewRandBuf(size_t size) {
     uint8_t* buf = new uint8_t[size];
+    if (buf == nullptr) {
+        return buf;
+    }
     for (uint8_t* i = buf;
          reinterpret_cast<size_t>(i) < reinterpret_cast<size_t>(buf) + size;
          i++) {

@@ -25,14 +25,13 @@
  */
 
 #include <assert.h>
-#include <err.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
 
 #define typeof(x) __typeof__(x)
-#include <lib/rng/trusty_rng.h>
 #include <lib/storage/storage.h>
+#include <lib/unittest/unittest.h>
 #include <trusty_unittest.h>
 
 #include <UniquePtr.h>
@@ -69,14 +68,16 @@ using keymaster::kProductIdSize;
 using keymaster::SecureStorageManager;
 
 uint8_t* NewRandBuf(uint32_t size) {
-    UniquePtr<uint8_t[]> buf(new uint8_t[size]);
-    if (!buf.get()) {
+    uint8_t* buf = new uint8_t[size];
+    if (buf == nullptr) {
         return nullptr;
     }
-    if (trusty_rng_secure_rand(buf.get(), size) != 0) {
-        return nullptr;
+    for (uint8_t* i = buf;
+         reinterpret_cast<size_t>(i) < reinterpret_cast<size_t>(buf) + size;
+         i++) {
+        *i = static_cast<uint8_t>(rand() % UINT8_MAX);
     }
-    return buf.release();
+    return buf;
 }
 
 void TestKeyStorage(SecureStorageManager* ss_manager,
@@ -306,8 +307,10 @@ void TestProductIdStoragePreventOverwrite(SecureStorageManager* ss_manager) {
 test_abort:
     TEST_END;
 }
-int main(void) {
+
+static bool keymaster_test(struct unittest* test) {
     TLOGI("Welcome to keymaster unit test -------------------------\n\n");
+    _tests_failed = 0;
 
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
 
@@ -336,5 +339,16 @@ int main(void) {
     TLOGI("Keymaster unit tests done ------------------------------\n\n");
     TLOGI("PASSED: %u, FAILED: %u\n", _tests_total - _tests_failed,
           _tests_failed);
-    return 0;
+    return _tests_failed == 0;
+}
+
+#define PORT_BASE "com.android.keymaster-unittest"
+
+int main(void) {
+    struct unittest keymaster_unittest = {
+            .port_name = PORT_BASE,
+            .run_test = keymaster_test,
+    };
+    struct unittest* keymaster_unittest_p = &keymaster_unittest;
+    return unittest_main(&keymaster_unittest_p, 1);
 }

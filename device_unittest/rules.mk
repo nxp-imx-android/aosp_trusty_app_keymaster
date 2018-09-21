@@ -35,6 +35,7 @@ MODULE_DEPS += \
 	trusty/user/base/lib/libstdc++-trusty \
 	trusty/user/base/lib/rng \
 	trusty/user/base/lib/storage \
+	trusty/user/base/lib/unittest \
 
 MODULE_SRCDEPS += \
 	$(NANOPB_GENERATED_HEADER) \
