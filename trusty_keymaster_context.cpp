@@ -516,7 +516,7 @@ keymaster_error_t TrustyKeymasterContext::SetSystemVersion(
 #ifdef KEYMASTER_DEBUG
     Buffer fake_root_of_trust("000111222333444555666777888999000", 32);
     Buffer verified_boot_hash_none;
-    if (!boot_params_set_) {
+    if (!root_of_trust_set_) {
         /* Sets bootloader parameters to what is expected on a 'good' device,
          * will pass attestation CTS tests. FOR DEBUGGING ONLY.
          */
