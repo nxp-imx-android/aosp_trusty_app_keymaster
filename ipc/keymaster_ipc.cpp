@@ -16,6 +16,7 @@
 
 #include "keymaster_ipc.h"
 
+#include <lk/macros.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -215,7 +216,7 @@ static long do_dispatch(void (Keymaster::*operation)(const Request&, Response*),
                         uint32_t payload_size,
                         keymaster::UniquePtr<uint8_t[]>* out,
                         uint32_t* out_size) {
-    status_t err;
+    long err;
     Request req;
 
     err = deserialize_request(msg, payload_size, req);
@@ -249,7 +250,7 @@ static long do_dispatch(Response (Keymaster::*operation)(const Request&),
                         uint32_t payload_size,
                         keymaster::UniquePtr<uint8_t[]>* out,
                         uint32_t* out_size) {
-    status_t err;
+    long err;
     Request req;
 
     err = deserialize_request(msg, payload_size, req);
@@ -279,7 +280,7 @@ static long do_dispatch(Response (Keymaster::*operation)(),
                         uint32_t payload_size,
                         keymaster::UniquePtr<uint8_t[]>* out,
                         uint32_t* out_size) {
-    status_t err;
+    long err;
     Response rsp = ((device->*operation)());
 
     if (msg->cmd == KM_CONFIGURE) {

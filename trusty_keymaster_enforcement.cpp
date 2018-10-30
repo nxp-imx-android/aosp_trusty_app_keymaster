@@ -75,7 +75,7 @@ bool TrustyKeymasterEnforcement::ValidateTokenSignature(
 }
 
 uint64_t TrustyKeymasterEnforcement::milliseconds_since_boot() const {
-    status_t rv;
+    int rv;
     int64_t secure_time_ns = 0;
     rv = gettime(0, 0, &secure_time_ns);
     if (rv || secure_time_ns < 0) {
