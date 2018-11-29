@@ -16,21 +16,19 @@
 ATAP_DIR := $(TRUSTY_TOP)/system/iot/attestation/atap
 KEYMASTER_ROOT := system/keymaster
 KEYMASTER_DIR := trusty/user/app/keymaster
-PB_GEN_DIR := $(call TOBUILDDIR,proto)
-
-include trusty/user/base/make/compile_proto.mk
-$(eval $(call compile_proto,$(KEYMASTER_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
-
+NANOPB_DIR := external/nanopb-c
 HOST_TEST := keymaster_test
 
 HOST_SRCS += \
 	$(KEYMASTER_DIR)/secure_storage_manager.cpp \
 	$(KEYMASTER_DIR)/host_unittest/main.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/logger.cpp \
-	$(NANOPB_DEPS) \
-	$(NANOPB_GENERATED_C) \
 	$(ATAP_DIR)/libatap/atap_util.c \
 	$(ATAP_DIR)/libatap/atap_sysdeps_posix.c \
+	$(KEYMASTER_DIR)/keymaster_attributes.pb.c \
+	$(NANOPB_DIR)/pb_common.c \
+	$(NANOPB_DIR)/pb_encode.c \
+	$(NANOPB_DIR)/pb_decode.c \
 
 HOST_INCLUDE_DIRS := \
 	$(KEYMASTER_ROOT) \
@@ -41,7 +39,6 @@ HOST_INCLUDE_DIRS := \
 	lib/lib/storage/include \
 	lib/interface/storage/include \
 	$(NANOPB_DIR) \
-	$(PB_GEN_DIR) \
 	$(ATAP_DIR) \
 
 HOST_FLAGS := -Wpointer-arith \

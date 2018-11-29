@@ -14,14 +14,22 @@
 #
 
 LOCAL_DIR := $(GET_LOCAL_DIR)
-PB_GEN_DIR := $(call TOBUILDDIR,proto)
-
-include trusty/user/base/make/compile_proto.mk
-$(eval $(call compile_proto,$(LOCAL_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
+NANOPB_DIR := external/nanopb-c
 
 MODULE := $(LOCAL_DIR)
 
 KEYMASTER_ROOT := $(TRUSTY_TOP)/system/keymaster
+
+# Uncomment the following lines to generate protobuf files and remove
+# $(KEYMASTER_DIR)/keymaster_attributes.pb.c from MODULE_SRCS. For detail
+# explanation, please see the comments in *.proto file.
+#
+# PB_GEN_DIR := $(call TOBUILDDIR,proto)
+# include trusty/user/base/make/compile_proto.mk
+# $(eval $(call compile_proto,$(KEYMASTER_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
+# MODULE_SRCS += $(NANOPB_DEPS) $(NANOPB_GENERATED_C)
+# MODULE_SRCDEPS += $(NANOPB_GENERATED_HEADER)
+# MODULE_INCLOUDES += $(PB_GEN_DIR)
 
 MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/android_keymaster/android_keymaster.cpp \
@@ -65,19 +73,17 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_enforcement.cpp \
 	$(LOCAL_DIR)/secure_storage_manager.cpp \
-	$(NANOPB_DEPS) \
-	$(NANOPB_GENERATED_C) \
+	$(LOCAL_DIR)/keymaster_attributes.pb.c \
+	$(NANOPB_DIR)/pb_common.c \
+	$(NANOPB_DIR)/pb_encode.c \
+	$(NANOPB_DIR)/pb_decode.c \
 
-MODULE_SRCDEPS += \
-	$(NANOPB_GENERATED_HEADER) \
-
-MODULE_INCLUDES := \
+MODULE_INCLUDES += \
 	$(KEYMASTER_ROOT)/include \
 	$(KEYMASTER_ROOT) \
 	$(TRUSTY_TOP)/hardware/libhardware/include \
 	$(LOCAL_DIR) \
 	$(NANOPB_DIR) \
-	$(PB_GEN_DIR) \
 
 MODULE_CPPFLAGS := -std=c++14 -fno-short-enums
 

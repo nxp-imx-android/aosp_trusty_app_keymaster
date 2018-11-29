@@ -16,19 +16,29 @@
 LOCAL_DIR := $(GET_LOCAL_DIR)
 KEYMASTER_ROOT := system/keymaster
 KEYMASTER_DIR := trusty/user/app/keymaster
-PB_GEN_DIR := $(call TOBUILDDIR,proto)
+NANOPB_DIR := external/nanopb-c
 MODULE := $(LOCAL_DIR)
 
-include trusty/user/base/make/compile_proto.mk
-$(eval $(call compile_proto,$(KEYMASTER_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
+# Uncomment the following lines to generate protobuf files and remove
+# $(KEYMASTER_DIR)/keymaster_attributes.pb.c from MODULE_SRCS. For detail
+# explanation, please see the comments in *.proto file.
+#
+# PB_GEN_DIR := $(call TOBUILDDIR,proto)
+# include trusty/user/base/make/compile_proto.mk
+# $(eval $(call compile_proto,$(KEYMASTER_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
+# MODULE_SRCS += $(NANOPB_DEPS) $(NANOPB_GENERATED_C)
+# MODULE_SRCDEPS += $(NANOPB_GENERATED_HEADER)
+# MODULE_INCLOUDES += $(PB_GEN_DIR)
 
 MODULE_SRCS += \
 	$(KEYMASTER_DIR)/secure_storage_manager.cpp \
 	$(LOCAL_DIR)/main.cpp \
 	$(LOCAL_DIR)/manifest.c \
 	$(KEYMASTER_ROOT)/android_keymaster/logger.cpp \
-	$(NANOPB_DEPS) \
-	$(NANOPB_GENERATED_C) \
+	$(KEYMASTER_DIR)/keymaster_attributes.pb.c \
+	$(NANOPB_DIR)/pb_common.c \
+	$(NANOPB_DIR)/pb_encode.c \
+	$(NANOPB_DIR)/pb_decode.c \
 
 MODULE_DEPS += \
 	trusty/user/base/lib/libc-trusty \
@@ -37,13 +47,10 @@ MODULE_DEPS += \
 	trusty/user/base/lib/storage \
 	trusty/user/base/lib/unittest \
 
-MODULE_SRCDEPS += \
-	$(NANOPB_GENERATED_HEADER) \
-
 MODULE_COMPILEFLAGS += -DPB_FIELD_16BIT
 MODULE_COMPILEFLAGS += -DPB_NO_STATIC_ASSERT
 
-MODULE_INCLUDES := \
+MODULE_INCLUDES += \
 	$(KEYMASTER_ROOT) \
 	$(LOCAL_DIR) \
 	$(KEYMASTER_DIR) \
@@ -52,7 +59,6 @@ MODULE_INCLUDES := \
 	lib/lib/storage/include \
 	lib/interface/storage/include \
 	$(NANOPB_DIR) \
-	$(PB_GEN_DIR) \
 	$(TRUSTY_TOP)/system/iot/attestation/atap \
 
 include make/module.mk
