@@ -46,7 +46,7 @@
         goto test_abort; \
     }
 
-#define LOG_TAG "km_storage_test"
+#define TLOG_TAG "km_storage_test"
 
 #define ASSERT_EQ(e, a)      \
     do {                     \
