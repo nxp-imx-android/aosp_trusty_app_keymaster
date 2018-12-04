@@ -277,18 +277,20 @@ AtapResult TrustyAtapOps::auth_key_sign(const uint8_t* nonce,
         return ATAP_RESULT_ERROR_CRYPTO;
     }
     /* Get sig length. */
-    if (1 != EVP_DigestSignFinal(mdctx.get(), NULL, sig_len)) {
+    size_t local_sig_len;
+    if (1 != EVP_DigestSignFinal(mdctx.get(), NULL, &local_sig_len)) {
         return ATAP_RESULT_ERROR_CRYPTO;
     }
-    if (*sig_len > ATAP_SIGNATURE_LEN_MAX) {
+    if (local_sig_len > ATAP_SIGNATURE_LEN_MAX) {
         LOG_E("Signature length larger than the supported maximum signature length.",
               0);
         return ATAP_RESULT_ERROR_INVALID_INPUT;
     }
     /* Obtain the signature */
-    if (1 != EVP_DigestSignFinal(mdctx.get(), sig, sig_len)) {
+    if (1 != EVP_DigestSignFinal(mdctx.get(), sig, &local_sig_len)) {
         return ATAP_RESULT_ERROR_CRYPTO;
     }
+    *sig_len = (uint32_t)local_sig_len;
 
     return ATAP_RESULT_OK;
 }
