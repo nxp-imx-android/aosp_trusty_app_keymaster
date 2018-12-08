@@ -41,24 +41,7 @@
 #define DATA_SIZE 1000
 #define CHAIN_LENGTH 3
 
-#define EXPECT_ALL_OK()  \
-    if (!_all_ok) {      \
-        goto test_abort; \
-    }
-
 #define TLOG_TAG "km_storage_test"
-
-#define ASSERT_EQ(e, a)      \
-    do {                     \
-        EXPECT_EQ(e, a, ""); \
-        EXPECT_ALL_OK();     \
-    } while (0)
-
-#define ASSERT_NE(e, a)      \
-    do {                     \
-        EXPECT_NE(e, a, ""); \
-        EXPECT_ALL_OK();     \
-    } while (0)
 
 using keymaster::AttestationKeySlot;
 using keymaster::CertificateChainDelete;
