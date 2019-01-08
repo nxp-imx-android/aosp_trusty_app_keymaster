@@ -599,6 +599,7 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
     auto result = ss_manager->ReadKeyFromStorage(key_slot, error);
 #if KEYMASTER_SOFT_ATTESTATION_FALLBACK
     if (*error != KM_ERROR_OK) {
+#ifdef KEYMASTER_DEBUG
         LOG_I("Failed to read attestation key from RPMB, falling back to test key",
               0);
         auto key = getAttestationKey(algorithm, error);
@@ -609,6 +610,9 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
         result = KeymasterKeyBlob(*key);
         if (!result.key_material)
             *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
+#else
+        return {};
+#endif
     }
 #endif
     return result;
