@@ -578,6 +578,7 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
     }
     auto result = ss_manager->ReadKeyFromStorage(key_slot, error);
     if (*error != KM_ERROR_OK) {
+#ifdef KEYMASTER_DEBUG
         LOG_I("Failed to read attestation key from RPMB, falling back to test key",
               0);
         auto key = getAttestationKey(algorithm, error);
@@ -588,6 +589,9 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
         result = KeymasterKeyBlob(*key);
         if (!result.key_material)
             *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
+#else
+        return {};
+#endif
     }
     return result;
 }
@@ -620,6 +624,7 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
         return {};
     }
     *error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
+#ifdef KEYMASTER_DEBUG
     if ((*error != KM_ERROR_OK) || (chain->entry_count == 0)) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);
@@ -635,6 +640,7 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
                    soft_chain->entries[i].data, chain->entries[i].data_length);
         }
     }
+#endif
     if (*error != KM_ERROR_OK)
         return nullptr;
     return chain;
