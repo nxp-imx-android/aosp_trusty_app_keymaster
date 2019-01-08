@@ -547,8 +547,10 @@ keymaster_error_t TrustyKeymasterContext::GetVerifiedBootParams(
 
 KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
                                 keymaster_error_t* error) {
+#ifdef KEYMASTER_DEBUG
     const uint8_t* key = nullptr;
     uint32_t key_size = 0;
+#endif
     AttestationKeySlot key_slot;
 
     switch (algorithm) {
@@ -567,6 +569,7 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
 
     auto result = ReadKeyFromStorage(key_slot, error);
     if (*error != KM_ERROR_OK) {
+#ifdef KEYMASTER_DEBUG
         LOG_I("Failed to read attestation key from RPMB, falling back to test key",
               0);
         *error = GetSoftwareAttestationKey(algorithm, &key, &key_size);
@@ -575,6 +578,9 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
         result = KeymasterKeyBlob(key, key_size);
         if (!result.key_material)
             *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
+#else
+        return {};
+#endif
     }
     return result;
 }
@@ -601,11 +607,13 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
     memset(chain.get(), 0, sizeof(keymaster_cert_chain_t));
 
     *error = ReadCertChainFromStorage(key_slot, chain.get());
+#ifdef KEYMASTER_DEBUG
     if (*error != KM_ERROR_OK) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);
         *error = GetSoftwareAttestationChain(algorithm, chain.get());
     }
+#endif
     if (*error != KM_ERROR_OK)
         return nullptr;
     return chain;
