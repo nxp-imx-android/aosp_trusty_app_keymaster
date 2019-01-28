@@ -70,8 +70,6 @@ void TestKeyStorage(SecureStorageManager* ss_manager,
     KeymasterKeyBlob key_blob;
     bool key_exists = false;
 
-    TEST_BEGIN(__func__);
-
     write_key.reset(NewRandBuf(DATA_SIZE));
     ASSERT_NE(nullptr, write_key.get());
 
@@ -85,13 +83,11 @@ void TestKeyStorage(SecureStorageManager* ss_manager,
     ASSERT_NE(nullptr, key_blob.key_material);
     ASSERT_EQ(0, memcmp(write_key.get(), key_blob.key_material, DATA_SIZE));
 
-    error = ss_manager->AttestationKeyExists(AttestationKeySlot::kRsa,
-                                             &key_exists);
+    error = ss_manager->AttestationKeyExists(key_slot, &key_exists);
     ASSERT_EQ(KM_ERROR_OK, error);
     ASSERT_EQ(true, key_exists);
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
 void TestCertChainStorage(SecureStorageManager* ss_manager,
@@ -102,8 +98,6 @@ void TestCertChainStorage(SecureStorageManager* ss_manager,
     unsigned int i = 0;
     uint32_t cert_chain_length;
     keymaster::UniquePtr<keymaster_cert_chain_t, CertificateChainDelete> chain;
-
-    TEST_BEGIN(__func__);
 
     for (i = 0; i < CHAIN_LENGTH; ++i) {
         write_cert[i].reset(NewRandBuf(DATA_SIZE));
@@ -133,8 +127,7 @@ void TestCertChainStorage(SecureStorageManager* ss_manager,
                             DATA_SIZE));
     }
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
 void TestCertStorageInvalid(SecureStorageManager* ss_manager,
@@ -142,8 +135,6 @@ void TestCertStorageInvalid(SecureStorageManager* ss_manager,
     keymaster_error_t error = KM_ERROR_OK;
     keymaster::UniquePtr<uint8_t[]> write_cert;
     uint32_t cert_chain_length;
-
-    TEST_BEGIN(__func__);
 
     // Clear existing certificate chain
     error = ss_manager->DeleteKey(key_slot, true);
@@ -163,16 +154,13 @@ void TestCertStorageInvalid(SecureStorageManager* ss_manager,
     ASSERT_EQ(KM_ERROR_OK, error);
     ASSERT_EQ(0, cert_chain_length);
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
 void DeleteAttestationData(SecureStorageManager* ss_manager) {
     keymaster_error_t error = KM_ERROR_OK;
     uint32_t cert_chain_length;
     bool key_exists;
-
-    TEST_BEGIN(__func__);
 
     error = ss_manager->DeleteAllAttestationData();
     ASSERT_EQ(KM_ERROR_OK, error);
@@ -195,8 +183,7 @@ void DeleteAttestationData(SecureStorageManager* ss_manager) {
     ASSERT_EQ(KM_ERROR_OK, error);
     ASSERT_EQ(false, key_exists);
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
 void TestUuidStorage(SecureStorageManager* ss_manager) {
@@ -204,8 +191,6 @@ void TestUuidStorage(SecureStorageManager* ss_manager) {
     keymaster::UniquePtr<uint8_t[]> write_uuid;
     keymaster::UniquePtr<uint8_t[]> read_uuid(
             new uint8_t[kAttestationUuidSize]);
-
-    TEST_BEGIN(__func__);
 
     error = ss_manager->DeleteAttestationUuid();
     ASSERT_EQ(KM_ERROR_OK, error);
@@ -224,16 +209,13 @@ void TestUuidStorage(SecureStorageManager* ss_manager) {
     error = ss_manager->DeleteAttestationUuid();
     ASSERT_EQ(KM_ERROR_OK, error);
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
 void TestProductIdStorage(SecureStorageManager* ss_manager) {
     keymaster_error_t error = KM_ERROR_OK;
     keymaster::UniquePtr<uint8_t[]> write_productid;
     keymaster::UniquePtr<uint8_t[]> read_productid(new uint8_t[kProductIdSize]);
-
-    TEST_BEGIN(__func__);
 
     error = ss_manager->DeleteProductId();
     ASSERT_EQ(KM_ERROR_OK, error);
@@ -253,8 +235,7 @@ void TestProductIdStorage(SecureStorageManager* ss_manager) {
     error = ss_manager->DeleteProductId();
     ASSERT_EQ(KM_ERROR_OK, error);
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
 void TestProductIdStoragePreventOverwrite(SecureStorageManager* ss_manager) {
@@ -262,8 +243,6 @@ void TestProductIdStoragePreventOverwrite(SecureStorageManager* ss_manager) {
     keymaster::UniquePtr<uint8_t[]> write_productid;
     keymaster::UniquePtr<uint8_t[]> overwrite_productid;
     keymaster::UniquePtr<uint8_t[]> read_productid(new uint8_t[kProductIdSize]);
-
-    TEST_BEGIN(__func__);
 
     error = ss_manager->DeleteProductId();
     ASSERT_EQ(KM_ERROR_OK, error);
@@ -287,42 +266,70 @@ void TestProductIdStoragePreventOverwrite(SecureStorageManager* ss_manager) {
     error = ss_manager->DeleteProductId();
     ASSERT_EQ(KM_ERROR_OK, error);
 
-test_abort:
-    TEST_END;
+test_abort:;
 }
 
-static bool keymaster_test(struct unittest* test) {
-    TLOGI("Welcome to keymaster unit test -------------------------\n\n");
-    _tests_failed = 0;
+typedef struct {
+    SecureStorageManager* ss_manager;
+} KeymasterTest_t;
 
-    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+static void KeymasterTest_SetUp(KeymasterTest_t* state) {
+    state->ss_manager = SecureStorageManager::get_instance();
 
-    DeleteAttestationData(ss_manager);
+    DeleteAttestationData(state->ss_manager);
+}
 
-    TestKeyStorage(ss_manager, AttestationKeySlot::kRsa);
-    TestKeyStorage(ss_manager, AttestationKeySlot::kEcdsa);
-    TestCertChainStorage(ss_manager, AttestationKeySlot::kRsa, false);
-    TestCertChainStorage(ss_manager, AttestationKeySlot::kEcdsa, false);
+static void KeymasterTest_TearDown(KeymasterTest_t* state) {
+    DeleteAttestationData(state->ss_manager);
+}
 
+TEST_F(KeymasterTest, TestKeyStorageRsa) {
+    TestKeyStorage(_state->ss_manager, AttestationKeySlot::kRsa);
+}
+
+TEST_F(KeymasterTest, TestKeyStorageEcdsa) {
+    TestKeyStorage(_state->ss_manager, AttestationKeySlot::kEcdsa);
+}
+
+TEST_F(KeymasterTest, TestCertChainStorageRsa) {
+    TestCertChainStorage(_state->ss_manager, AttestationKeySlot::kRsa, false);
+}
+
+TEST_F(KeymasterTest, TestCertChainStorageEcdsa) {
+    TestCertChainStorage(_state->ss_manager, AttestationKeySlot::kEcdsa, false);
+}
+
+TEST_F(KeymasterTest, TestRewriteKey) {
+    TestKeyStorage(_state->ss_manager, AttestationKeySlot::kRsa);
     // Rewriting keys should work
-    TestKeyStorage(ss_manager, AttestationKeySlot::kRsa);
-    TestCertChainStorage(ss_manager, AttestationKeySlot::kRsa, true);
+    TestKeyStorage(_state->ss_manager, AttestationKeySlot::kRsa);
+}
 
-    TestCertStorageInvalid(ss_manager, AttestationKeySlot::kRsa);
+TEST_F(KeymasterTest, TestRewriteChain) {
+    TestCertChainStorage(_state->ss_manager, AttestationKeySlot::kRsa, false);
+    TestCertChainStorage(_state->ss_manager, AttestationKeySlot::kRsa, true);
+}
 
-    TestUuidStorage(ss_manager);
-    TestProductIdStorage(ss_manager);
+TEST_F(KeymasterTest, TestCertStorageInvalid) {
+    TestCertStorageInvalid(_state->ss_manager, AttestationKeySlot::kRsa);
+}
+
+TEST_F(KeymasterTest, TestUuidStorage) {
+    TestUuidStorage(_state->ss_manager);
+}
+
+TEST_F(KeymasterTest, TestProductIdStorage) {
+    TestProductIdStorage(_state->ss_manager);
+}
 
 #ifndef KEYMASTER_DEBUG
-    TestProductIdStoragePreventOverwrite(ss_manager);
+TEST_F(KeymasterTest, TestProductIdStoragePreventOverwrite) {
+    TestProductIdStoragePreventOverwrite(_state->ss_manager);
+}
 #endif
 
-    DeleteAttestationData(ss_manager);
-
-    TLOGI("Keymaster unit tests done ------------------------------\n\n");
-    TLOGI("PASSED: %u, FAILED: %u\n", _tests_total - _tests_failed,
-          _tests_failed);
-    return _tests_failed == 0;
+static bool keymaster_test(struct unittest* test) {
+    return RUN_ALL_TESTS();
 }
 
 #define PORT_BASE "com.android.keymaster-unittest"
