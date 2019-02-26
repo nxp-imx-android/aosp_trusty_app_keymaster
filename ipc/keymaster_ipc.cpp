@@ -136,7 +136,7 @@ static long send_response(handle_t chan,
                           uint32_t out_buf_size) {
     struct keymaster_message km_msg;
     km_msg.cmd = cmd | KEYMASTER_RESP_BIT;
-    iovec_t iov[2] = {{&km_msg, sizeof(km_msg)}, {nullptr, 0}};
+    struct iovec iov[2] = {{&km_msg, sizeof(km_msg)}, {nullptr, 0}};
     ipc_msg_t msg = {2, iov, 0, NULL};
     uint32_t msg_size;
     uint32_t bytes_remaining = out_buf_size;
@@ -610,7 +610,7 @@ static long handle_msg(keymaster_chan_ctx* ctx) {
     msg_buf[msg_inf.len] = 0;
 
     /* read msg content */
-    iovec_t iov = {msg_buf.get(), msg_inf.len};
+    struct iovec iov = {msg_buf.get(), msg_inf.len};
     ipc_msg_t msg = {1, &iov, 0, NULL};
 
     rc = read_msg(chan, msg_inf.id, 0, &msg);
