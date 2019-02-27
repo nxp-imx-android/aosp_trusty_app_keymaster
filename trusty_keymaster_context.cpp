@@ -35,7 +35,8 @@
 #include "test_attestation_keys.h"
 
 #ifdef KEYMASTER_DEBUG
-#warning "Compiling with fake Keymaster Root of Trust values! DO NOT SHIP THIS!"
+#pragma message \
+        "Compiling with fake Keymaster Root of Trust values! DO NOT SHIP THIS!"
 #endif
 
 namespace keymaster {

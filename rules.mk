@@ -93,7 +93,9 @@ MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__
 # Defining KEYMASTER_DEBUG will allow configure() to succeed without root of
 # trust from bootloader.
 #
-# MODULE_COMPILEFLAGS += -DKEYMASTER_DEBUG
+ifeq (true,$(call TOBOOL,$(KEYMASTER_DEBUG)))
+MODULE_COMPILEFLAGS += -DKEYMASTER_DEBUG
+endif
 
 # Add support for nanopb tag numbers > 255 and fields larger than 255 bytes or
 # 255 array entries.
