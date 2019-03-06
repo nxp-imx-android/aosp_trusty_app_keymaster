@@ -32,7 +32,7 @@
 #include <keymaster/km_openssl/attestation_utils.h>
 #include <keymaster/km_openssl/hmac_key.h>
 #include <keymaster/km_openssl/openssl_err.h>
-#include "test_attestation_keys.h"
+#include <soft_attestation_cert.h>
 
 #ifdef KEYMASTER_DEBUG
 #pragma message \
@@ -548,8 +548,6 @@ keymaster_error_t TrustyKeymasterContext::GetVerifiedBootParams(
 
 KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
                                 keymaster_error_t* error) {
-    const uint8_t* key = nullptr;
-    uint32_t key_size = 0;
     AttestationKeySlot key_slot;
 
     switch (algorithm) {
@@ -576,10 +574,12 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
     if (*error != KM_ERROR_OK) {
         LOG_I("Failed to read attestation key from RPMB, falling back to test key",
               0);
-        *error = GetSoftwareAttestationKey(algorithm, &key, &key_size);
-        if (*error != KM_ERROR_OK)
+        auto key = getAttestationKey(algorithm, error);
+        if (*error != KM_ERROR_OK) {
+            LOG_D("Software attestation key missing: %d", *error);
             return {};
-        result = KeymasterKeyBlob(key, key_size);
+        }
+        result = KeymasterKeyBlob(*key);
         if (!result.key_material)
             *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
@@ -617,7 +617,17 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
     if (*error != KM_ERROR_OK) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);
-        *error = GetSoftwareAttestationChain(algorithm, chain.get());
+        const keymaster_cert_chain_t* soft_chain =
+                getAttestationChain(algorithm, error);
+        chain->entry_count = soft_chain->entry_count;
+        chain->entries = new keymaster_blob_t[chain->entry_count];
+        for (size_t i = 0; i < chain->entry_count; i++) {
+            chain->entries[i].data =
+                    new uint8_t[soft_chain->entries[i].data_length];
+            chain->entries[i].data_length = soft_chain->entries[i].data_length;
+            memcpy((uint8_t*)chain->entries[i].data,
+                   soft_chain->entries[i].data, chain->entries[i].data_length);
+        }
     }
     if (*error != KM_ERROR_OK)
         return nullptr;

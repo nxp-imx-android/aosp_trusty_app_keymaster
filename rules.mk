@@ -66,9 +66,9 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/rsa_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/software_random_source.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/symmetric_key.cpp \
+	$(KEYMASTER_ROOT)/contexts/soft_attestation_cert.cpp \
 	$(LOCAL_DIR)/manifest.c \
 	$(LOCAL_DIR)/openssl_keymaster_enforcement.cpp \
-	$(LOCAL_DIR)/test_attestation_keys.cpp \
 	$(LOCAL_DIR)/trusty_keymaster.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_enforcement.cpp \
@@ -80,6 +80,7 @@ MODULE_SRCS += \
 
 MODULE_INCLUDES += \
 	$(KEYMASTER_ROOT)/include \
+	$(KEYMASTER_ROOT)/contexts \
 	$(KEYMASTER_ROOT) \
 	$(TRUSTY_TOP)/hardware/libhardware/include \
 	$(LOCAL_DIR) \
