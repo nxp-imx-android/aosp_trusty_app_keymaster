@@ -381,7 +381,7 @@ keymaster_error_t SecureStorageManager::ReadKeymasterAttributes(
             DecodeFromFile(KeymasterAttributes_fields, km_attributes.get(),
                            kAttributeFileName);
     if (err < 0) {
-        LOG_E("Error: [%d] decoding from file '%s'", kAttributeFileName);
+        LOG_E("Error: [%d] decoding from file '%s'", err, kAttributeFileName);
         return err;
     }
     *km_attributes_p = km_attributes.release();
@@ -548,7 +548,7 @@ keymaster_error_t SecureStorageManager::ReadAttestationKey(
     keymaster_error_t err = DecodeFromFile(AttestationKey_fields,
                                            attestation_key.get(), key_file);
     if (err < 0) {
-        LOG_E("Error: [%d] decoding from file '%s'", kAttributeFileName);
+        LOG_E("Error: [%d] decoding from file '%s'", err, key_file);
         return err;
     }
     *attestation_key_p = attestation_key.release();
