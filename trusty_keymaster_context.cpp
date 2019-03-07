@@ -614,7 +614,7 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
         return {};
     }
     *error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
-    if (*error != KM_ERROR_OK) {
+    if ((*error != KM_ERROR_OK) || (chain->entry_count == 0)) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);
         const keymaster_cert_chain_t* soft_chain =
