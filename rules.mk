@@ -68,6 +68,7 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/symmetric_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/triple_des_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/triple_des_operation.cpp \
+	$(KEYMASTER_ROOT)/km_openssl/wrapped_key.cpp \
 	$(KEYMASTER_ROOT)/contexts/soft_attestation_cert.cpp \
 	$(LOCAL_DIR)/manifest.c \
 	$(LOCAL_DIR)/openssl_keymaster_enforcement.cpp \
