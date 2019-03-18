@@ -151,6 +151,7 @@ private:
     UniquePtr<KeyFactory> ec_factory_;
     UniquePtr<KeyFactory> hmac_factory_;
     UniquePtr<KeyFactory> rsa_factory_;
+    UniquePtr<KeyFactory> tdes_factory_;
 
     bool rng_initialized_;
     mutable int calls_since_reseed_;

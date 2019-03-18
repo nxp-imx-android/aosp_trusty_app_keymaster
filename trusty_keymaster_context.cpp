@@ -21,17 +21,17 @@
 #include <lib/rng/trusty_rng.h>
 
 #include <keymaster/android_keymaster_utils.h>
-#include <keymaster/km_openssl/ec_key_factory.h>
-#include <keymaster/km_openssl/rsa_key_factory.h>
-#include <keymaster/logger.h>
-
 #include <keymaster/key_blob_utils/auth_encrypted_key_blob.h>
 #include <keymaster/key_blob_utils/ocb_utils.h>
 #include <keymaster/km_openssl/aes_key.h>
 #include <keymaster/km_openssl/asymmetric_key.h>
 #include <keymaster/km_openssl/attestation_utils.h>
+#include <keymaster/km_openssl/ec_key_factory.h>
 #include <keymaster/km_openssl/hmac_key.h>
 #include <keymaster/km_openssl/openssl_err.h>
+#include <keymaster/km_openssl/rsa_key_factory.h>
+#include <keymaster/km_openssl/triple_des_key.h>
+#include <keymaster/logger.h>
 #include <soft_attestation_cert.h>
 
 #ifdef KEYMASTER_DEBUG
@@ -80,6 +80,7 @@ TrustyKeymasterContext::TrustyKeymasterContext()
           calls_since_reseed_(0) {
     LOG_D("Creating TrustyKeymaster", 0);
     rsa_factory_.reset(new RsaKeyFactory(this));
+    tdes_factory_.reset(new TripleDesKeyFactory(this, this));
     ec_factory_.reset(new EcKeyFactory(this));
     aes_factory_.reset(new AesKeyFactory(this, this));
     hmac_factory_.reset(new HmacKeyFactory(this, this));
@@ -97,13 +98,16 @@ const KeyFactory* TrustyKeymasterContext::GetKeyFactory(
         return aes_factory_.get();
     case KM_ALGORITHM_HMAC:
         return hmac_factory_.get();
+    case KM_ALGORITHM_TRIPLE_DES:
+        return tdes_factory_.get();
     default:
         return nullptr;
     }
 }
 
 static keymaster_algorithm_t supported_algorithms[] = {
-        KM_ALGORITHM_RSA, KM_ALGORITHM_EC, KM_ALGORITHM_AES, KM_ALGORITHM_HMAC};
+        KM_ALGORITHM_RSA, KM_ALGORITHM_EC, KM_ALGORITHM_AES, KM_ALGORITHM_HMAC,
+        KM_ALGORITHM_TRIPLE_DES};
 
 const keymaster_algorithm_t* TrustyKeymasterContext::GetSupportedAlgorithms(
         size_t* algorithms_count) const {
@@ -208,7 +212,6 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         case KM_TAG_CREATION_DATETIME:
         case KM_TAG_INCLUDE_UNIQUE_ID:
         case KM_TAG_EXPORTABLE:
-
             sw_enforced->push_back(entry);
             break;
         default:
