@@ -109,7 +109,7 @@ static int wait_to_send(handle_t session, struct ipc_msg* msg) {
     int rc;
     struct uevent ev = UEVENT_INITIAL_VALUE(ev);
 
-    rc = wait(session, &ev, -1);
+    rc = wait(session, &ev, INFINITE_TIME);
     if (rc < 0) {
         LOG_E("failed to wait for outgoing queue to free up\n", 0);
         return rc;
@@ -824,7 +824,7 @@ int main(void) {
         event.event = 0;
         event.cookie = NULL;
 
-        rc = wait_any(&event, -1);
+        rc = wait_any(&event, INFINITE_TIME);
         if (rc < 0) {
             LOG_E("wait_any failed (%d)", rc);
             break;
