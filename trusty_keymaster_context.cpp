@@ -188,7 +188,6 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         case KM_TAG_KDF:
         case KM_TAG_EC_CURVE:
         case KM_TAG_ECIES_SINGLE_HASH_MODE:
-        case KM_TAG_TRUSTED_CONFIRMATION_REQUIRED:
             hw_enforced->push_back(entry);
             break;
 
