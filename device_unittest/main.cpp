@@ -34,7 +34,7 @@
 #include <lib/unittest/unittest.h>
 #include <trusty_unittest.h>
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 #include <keymaster/android_keymaster_utils.h>
 #include "secure_storage_manager.h"
 

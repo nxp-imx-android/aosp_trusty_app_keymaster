@@ -26,7 +26,7 @@
 #include "secure_storage_manager.h"
 #include "trusty_logger.h"
 
-#include <UniquePtr.h>
+#include <keymaster/UniquePtr.h>
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
