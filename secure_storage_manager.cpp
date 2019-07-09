@@ -99,6 +99,14 @@ private:
 SecureStorageManager* SecureStorageManager::get_instance(
         bool translate_format) {
     static SecureStorageManager instance;
+    if (instance.session_handle_ != STORAGE_INVALID_SESSION) {
+        int rc = storage_end_transaction(instance.session_handle_, false);
+        if (rc < 0) {
+            LOG_E("Error: existing session is stale.", 0);
+            storage_close_session(instance.session_handle_);
+            instance.session_handle_ = STORAGE_INVALID_SESSION;
+        }
+    }
     if (instance.session_handle_ == STORAGE_INVALID_SESSION) {
         storage_open_session(&instance.session_handle_, STORAGE_CLIENT_TP_PORT);
         if (instance.session_handle_ == STORAGE_INVALID_SESSION) {

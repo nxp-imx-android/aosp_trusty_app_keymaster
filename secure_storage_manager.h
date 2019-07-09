@@ -61,6 +61,13 @@ struct Certificate {
 
 class SecureStorageManager {
 public:
+    /**
+     * Get a SecureStorageManager instance. The instance returned is shared with
+     * all other callers, so it is not safe to call any api that does not commit
+     * the transaction and then let other clients use the api. get_instance will
+     * also discard any previous transaction to detect if the session is still
+     * alive, and to make the starting state more predictable.
+     */
     static SecureStorageManager* get_instance(bool translate_format = true);
 
     /**
