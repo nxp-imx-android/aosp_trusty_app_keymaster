@@ -19,6 +19,7 @@
 
 #include <lib/keybox/client/keybox.h>
 #include <uapi/err.h>
+#include <lib/hwkey/hwkey.h>
 
 #include <memory>
 
@@ -203,6 +204,34 @@ void TrustyKeymaster::ClearAttestationCertChain(
         return;
     }
 
+    response->error = KM_ERROR_OK;
+}
+
+void TrustyKeymaster::GetMppubk(const GetMppubkRequest& request,
+                                        GetMppubkResponse* response) {
+    uint8_t key[64];
+    uint32_t key_size = 64;
+    const char* mppubk_key_id = "com.android.trusty.keymaster.mppubk";
+
+    if (response == nullptr)
+        return;
+
+    long rc = hwkey_open();
+    if (rc < 0) {
+        response->error = KM_ERROR_UNKNOWN_ERROR;
+        return;
+    }
+
+    hwkey_session_t session = (hwkey_session_t)rc;
+    /* Generate manufacture production public key */
+    rc = hwkey_get_keyslot_data(session, mppubk_key_id, key, &key_size);
+    if (rc < 0) {
+        response->error = KM_ERROR_UNKNOWN_ERROR;
+        return;
+    }
+    hwkey_close(session);
+
+    response->data.Reinitialize(key, key_size);
     response->error = KM_ERROR_OK;
 }
 
