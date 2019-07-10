@@ -349,7 +349,8 @@ static bool cmd_is_from_bootloader(uint32_t cmd) {
             cmd == KM_ATAP_SET_CA_RESPONSE_BEGIN ||
             cmd == KM_ATAP_SET_CA_RESPONSE_UPDATE ||
             cmd == KM_ATAP_SET_CA_RESPONSE_FINISH || cmd == KM_ATAP_READ_UUID ||
-            cmd == KM_SET_PRODUCT_ID || cmd == KM_CONFIGURE_BOOT_PATCHLEVEL);
+            cmd == KM_SET_PRODUCT_ID || cmd == KM_CONFIGURE_BOOT_PATCHLEVEL ||
+	    cmd == KM_GET_MPPUBK);
 }
 
 // Returns true if |cmd| can be used before the configure command
@@ -416,6 +417,11 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
     case KM_EXPORT_KEY:
         LOG_D("Dispatching EXPORT_KEY, size: %d", payload_size);
         return do_dispatch(&TrustyKeymaster::ExportKey, msg, payload_size, out,
+                           out_size);
+
+    case KM_GET_MPPUBK:
+        LOG_D("Dispatching GET_MPPUBK, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::GetMppubk, msg, payload_size, out,
                            out_size);
 
     case KM_GET_VERSION:

@@ -84,6 +84,12 @@ public:
             const AppendAttestationCertChainRequest& request,
             AppendAttestationCertChainResponse* response);
 
+    // GetMppubk will generate the manufacture protection public key
+    // and bootloader will pull this key.
+    void GetMppubk(
+            const GetMppubkRequest& request,
+            GetMppubkResponse* response);
+
     // AtapGetCaRequest is the first of two calls that are part of the the
     // Android Things Attestation Provisioning (ATAP) protocol. This protocol is
     // used instead of SetAttestationKey and AppendAttestationCertChain.
