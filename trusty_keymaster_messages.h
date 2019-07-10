@@ -175,6 +175,10 @@ struct ClearAttestationCertChainRequest : public KeymasterMessage {
 };
 using ClearAttestationCertChainResponse = EmptyKeymasterResponse;
 
+using GetMppubkRequest = EmptyKeymasterRequest;
+
+using GetMppubkResponse = RawBufferResponse;
+
 struct AppendAttestationCertChainRequest : public KeymasterMessage {
     explicit AppendAttestationCertChainRequest(int32_t ver)
             : KeymasterMessage(ver) {}
