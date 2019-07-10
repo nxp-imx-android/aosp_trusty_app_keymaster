@@ -152,6 +152,10 @@ struct SetAttestationKeyRequest : public KeymasterMessage {
 
 struct SetAttestationKeyResponse : public NoResponse {};
 
+struct GetMppubkRequest : public NoRequest {};
+
+struct GetMppubkResponse : public RawBufferResponse {};
+
 struct AppendAttestationCertChainRequest : public KeymasterMessage {
     explicit AppendAttestationCertChainRequest(
             int32_t ver = MAX_MESSAGE_VERSION)
