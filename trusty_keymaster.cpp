@@ -16,8 +16,10 @@
 
 #include "trusty_keymaster.h"
 #include "secure_storage_manager.h"
+#include <string.h>
 
 #include <lib/keybox/client/keybox.h>
+#include <lib/hwkey/hwkey.h>
 #include <uapi/err.h>
 #include <lib/hwkey/hwkey.h>
 
@@ -97,6 +99,65 @@ AttestationKeySlot keymaster_algorithm_to_key_slot(
     default:
         return AttestationKeySlot::kInvalid;
     }
+}
+
+void TrustyKeymaster::SetAttestationKey_enc(const SetAttestationKeyRequest& request,
+                                        SetAttestationKeyResponse* response) {
+    uint8_t out[2048] = {0};
+    if (response == nullptr)
+        return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    size_t key_size = request.key_data.buffer_size();
+    const uint8_t* enckey = request.key_data.begin();
+    struct attestation_blob_header *header = (struct attestation_blob_header*)enckey;
+    uint8_t *in = (uint8_t*)(enckey+ sizeof(struct attestation_blob_header));
+
+    if (strcmp(header->magic, BLOB_HEADER_MAGIC)) {
+        response->error = KM_ERROR_INCOMPATIBLE_KEY_FORMAT;
+        return;
+    }
+
+    if (key_size <= sizeof(struct attestation_blob_header)) {
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+        return;
+    }
+
+    long rc = hwkey_open();
+    if (rc < 0) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    hwkey_session_t session = (hwkey_session_t)rc;
+
+    rc = hwkey_mp_decrypt(session, in, key_size - sizeof(struct attestation_blob_header), out);
+
+    hwkey_close(session);
+    AttestationKeySlot key_slot;
+
+    switch (request.algorithm) {
+    case KM_ALGORITHM_RSA:
+        key_slot = AttestationKeySlot::kRsa;
+        break;
+    case KM_ALGORITHM_EC:
+        key_slot = AttestationKeySlot::kEcdsa;
+        break;
+    default:
+        response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+        return;
+    }
+    if (key_size == 0) {
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+        return;
+    }
+
+    response->error = ss_manager->WriteKeyToStorage(key_slot, out, header->len);
 }
 
 void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
@@ -278,6 +339,94 @@ void TrustyKeymaster::GetMppubk(const GetMppubkRequest& request,
 
     response->data.Reinitialize(key, key_size);
     response->error = KM_ERROR_OK;
+}
+
+void TrustyKeymaster::AppendAttestationCertChain_enc(
+        const AppendAttestationCertChainRequest& request,
+        AppendAttestationCertChainResponse* response) {
+
+    uint8_t out[2048] = {0};
+    if (response == nullptr)
+        return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+
+    size_t cert_size = request.cert_data.buffer_size();
+    const uint8_t* blob= request.cert_data.begin();
+    struct attestation_blob_header *header = (struct attestation_blob_header*)blob;
+    uint8_t *in = (uint8_t*)(blob + sizeof(struct attestation_blob_header));
+
+    if (strcmp(header->magic, BLOB_HEADER_MAGIC)) {
+        response->error = KM_ERROR_INCOMPATIBLE_KEY_FORMAT;
+        return;
+    }
+
+    if (cert_size <= sizeof(struct attestation_blob_header)) {
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+        return;
+    }
+
+    long rc = hwkey_open();
+    if (rc < 0) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    hwkey_session_t session = (hwkey_session_t)rc;
+    rc = hwkey_mp_decrypt(session, in, cert_size - sizeof(struct attestation_blob_header), out);
+
+    hwkey_close(session);
+    AttestationKeySlot key_slot;
+
+    response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+    switch (request.algorithm) {
+    case KM_ALGORITHM_RSA:
+        key_slot = AttestationKeySlot::kRsa;
+        break;
+    case KM_ALGORITHM_EC:
+        key_slot = AttestationKeySlot::kEcdsa;
+        break;
+    default:
+        return;
+    }
+    response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+    if (cert_size == 0) {
+        return;
+    }
+    uint32_t cert_chain_length = 0;
+    if (ss_manager->ReadCertChainLength(key_slot, &cert_chain_length) !=
+        KM_ERROR_OK) {
+        LOG_E("Failed to read cert chain length, initialize to 0.\n");
+        cert_chain_length = 0;
+    }
+    if (cert_chain_length >= kMaxCertChainLength) {
+        // Delete the cert chain when it hits max length.
+        keymaster_error_t err =
+                ss_manager->DeleteCertChainFromStorage(key_slot);
+        if (err != KM_ERROR_OK) {
+            LOG_E("Failed to delete cert chain.\n");
+            response->error = err;
+            return;
+        }
+        err = ss_manager->ReadCertChainLength(key_slot, &cert_chain_length);
+        if (err != KM_ERROR_OK) {
+            LOG_E("Failed to read cert chain length.\n");
+            response->error = err;
+            return;
+        }
+        if (cert_chain_length != 0) {
+            LOG_E("Cert chain could not be deleted.\n");
+            response->error = err;
+            return;
+        }
+    }
+    response->error = ss_manager->WriteCertToStorage(key_slot, out, header->len,
+                                                     cert_chain_length);
 }
 
 void TrustyKeymaster::AppendAttestationCertChain(
