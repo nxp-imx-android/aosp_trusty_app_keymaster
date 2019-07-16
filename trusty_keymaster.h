@@ -25,8 +25,14 @@
 #include "atap/trusty_atap_ops.h"
 #include "ops/atap_ops_provider.h"
 #endif
+#define BLOB_HEADER_MAGIC "!AT"
 
 namespace keymaster {
+
+struct attestation_blob_header {
+    char magic[4];
+    uint32_t len;
+};
 
 // TrustyKeymaster implements handlers for IPC operations. Most operations are
 // implemented by AndroidKeymaster but some operations which are not part of the
@@ -54,6 +60,21 @@ public:
     // call for each supported algorithm.
     void SetAttestationKey(const SetAttestationKeyRequest& request,
                            SetAttestationKeyResponse* response);
+
+    // SetAttestastionKey sets a single attestation key. There should be one
+    // call for each supported algorithm. This is used for AES-ECB encrypted
+    // Attestation Key provision.
+    void SetAttestationKey_enc(const SetAttestationKeyRequest& request,
+                           SetAttestationKeyResponse* response);
+
+    // AppendAttestationCertChain sets a single certificate in an attestation
+    // certificate chain. The bootloader should push certificates into Trusty,
+    // one certificate per request, starting with the attestation certificate.
+    // Multiple AppendAttestationCertChain requests are expected. This is used
+    // for AES-ECB encrypted Attestation Cert provision.
+    void AppendAttestationCertChain_enc(
+            const AppendAttestationCertChainRequest& request,
+            AppendAttestationCertChainResponse* response);
 
     // AppendAttestationCertChain sets a single certificate in an attestation
     // certificate chain. The bootloader should push certificates into Trusty,
