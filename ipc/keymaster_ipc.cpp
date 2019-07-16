@@ -334,6 +334,7 @@ static long keymaster_dispatch_secure(keymaster_chan_ctx* ctx,
 // Returns true if |cmd| is called from the bootloader
 static bool cmd_is_from_bootloader(uint32_t cmd) {
     return (cmd == KM_SET_BOOT_PARAMS || cmd == KM_SET_ATTESTATION_KEY ||
+            cmd == KM_SET_ATTESTATION_KEY_ENC || cmd == KM_APPEND_ATTESTATION_CERT_CHAIN_ENC ||
             cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
             cmd == KM_ATAP_GET_CA_REQUEST ||
             cmd == KM_ATAP_SET_CA_RESPONSE_BEGIN ||
@@ -514,6 +515,16 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
     case KM_SET_ATTESTATION_KEY:
         LOG_D("Dispatching SET_ATTESTION_KEY, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::SetAttestationKey, msg,
+                           payload_size, out, out_size);
+
+    case KM_SET_ATTESTATION_KEY_ENC:
+        LOG_D("Dispatching SET_ATTESTION_KEY, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::SetAttestationKey_enc, msg,
+                           payload_size, out, out_size);
+
+    case KM_APPEND_ATTESTATION_CERT_CHAIN_ENC:
+        LOG_D("Dispatching SET_ATTESTATION_CERT_CHAIN, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::AppendAttestationCertChain_enc, msg,
                            payload_size, out, out_size);
 
     case KM_APPEND_ATTESTATION_CERT_CHAIN:
