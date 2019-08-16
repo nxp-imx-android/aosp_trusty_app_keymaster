@@ -90,6 +90,12 @@ public:
             const GetMppubkRequest& request,
             GetMppubkResponse* response);
 
+    // VerifySecureUnlock will verify if the unlock credential matches the serial
+    // number passed in.
+    void VerifySecureUnlock(
+            const VerifySecureUnlockRequest& request,
+            VerifySecureUnlockResponse* response);
+
     // AtapGetCaRequest is the first of two calls that are part of the the
     // Android Things Attestation Provisioning (ATAP) protocol. This protocol is
     // used instead of SetAttestationKey and AppendAttestationCertChain.
