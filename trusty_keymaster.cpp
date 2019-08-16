@@ -295,6 +295,55 @@ void TrustyKeymaster::GetMppubk(const GetMppubkRequest& request,
     response->error = KM_ERROR_OK;
 }
 
+void TrustyKeymaster::VerifySecureUnlock(const VerifySecureUnlockRequest& request,
+                                         VerifySecureUnlockResponse* response) {
+
+    uint8_t out_buf[32] = {0};
+    uint32_t credential_size = request.credential_data.buffer_size();
+    uint32_t serial_size = request.serial_data.buffer_size();
+    uint8_t *credential, *in_ptr;
+
+    credential = (uint8_t *)(request.credential_data.begin());
+    in_ptr = (uint8_t*)(credential + sizeof(struct attestation_blob_header));
+
+    /* Check the magic head. */
+    if (strcmp(((struct attestation_blob_header *)credential)->magic, BLOB_HEADER_MAGIC)) {
+        response->error = KM_ERROR_INCOMPATIBLE_KEY_FORMAT;
+        return;
+    }
+    if (credential_size <= sizeof(struct attestation_blob_header)) {
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+        return;
+    }
+    int rc = hwkey_open();
+    if (rc < 0) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    hwkey_session_t session = (hwkey_session_t)rc;
+
+    /* Decrypt the serial number */
+    rc = hwkey_mp_decrypt(session, in_ptr,
+                          credential_size - sizeof(struct attestation_blob_header), out_buf);
+
+    hwkey_close(session);
+
+    /* Verify the serial number, return error if verify fail. */
+    if (serial_size > 32) {
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+        return;
+    }
+
+    if (memcmp(out_buf, request.serial_data.begin(), serial_size)) {
+        LOG_E("secure unlock credential verify fail!\n", 0);
+        response->error = KM_ERROR_UNKNOWN_ERROR;
+    } else {
+        response->error = KM_ERROR_OK;
+    }
+
+}
+
 void TrustyKeymaster::AppendAttestationCertChain_enc(
         const AppendAttestationCertChainRequest& request,
         AppendAttestationCertChainResponse* response) {
