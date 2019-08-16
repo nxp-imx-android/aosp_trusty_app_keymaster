@@ -156,6 +156,29 @@ struct GetMppubkRequest : public NoRequest {};
 
 struct GetMppubkResponse : public RawBufferResponse {};
 
+struct VerifySecureUnlockRequest : public KeymasterMessage {
+    explicit VerifySecureUnlockRequest(
+            int32_t ver = MAX_MESSAGE_VERSION)
+            : KeymasterMessage(ver) {}
+
+    size_t SerializedSize() const override {
+        return serial_data.SerializedSize() + credential_data.SerializedSize();
+    }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        buf = serial_data.Serialize(buf, end);
+        return credential_data.Serialize(buf, end);
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return serial_data.Deserialize(buf_ptr, end) &&
+               credential_data.Deserialize(buf_ptr, end);
+    }
+
+    Buffer serial_data;
+    Buffer credential_data;
+};
+
+struct VerifySecureUnlockResponse : public NoResponse {};
+
 struct AppendAttestationCertChainRequest : public KeymasterMessage {
     explicit AppendAttestationCertChainRequest(
             int32_t ver = MAX_MESSAGE_VERSION)
