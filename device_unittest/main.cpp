@@ -38,6 +38,9 @@
 #include <keymaster/android_keymaster_utils.h>
 #include "secure_storage_manager.h"
 
+#undef STRINGIFY
+#include "trusty_logger.h"
+
 #define DATA_SIZE 1000
 #define CHAIN_LENGTH 3
 
@@ -335,6 +338,8 @@ static bool keymaster_test(struct unittest* test) {
 #define PORT_BASE "com.android.keymaster-unittest"
 
 int main(void) {
+    keymaster::TrustyLogger::initialize();
+
     struct unittest keymaster_unittest = {
             .port_name = PORT_BASE,
             .run_test = keymaster_test,
