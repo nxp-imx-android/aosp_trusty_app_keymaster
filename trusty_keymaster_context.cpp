@@ -543,10 +543,13 @@ void TrustyKeymasterContext::GetSystemVersion(uint32_t* os_version,
 
 keymaster_error_t TrustyKeymasterContext::GetVerifiedBootParams(
         keymaster_blob_t* verified_boot_key,
+        keymaster_blob_t* verified_boot_hash,
         keymaster_verified_boot_t* verified_boot_state,
         bool* device_locked) const {
     verified_boot_key->data = verified_boot_key_.begin();
     verified_boot_key->data_length = verified_boot_key_.buffer_size();
+    verified_boot_hash->data = verified_boot_hash_.begin();
+    verified_boot_hash->data_length = verified_boot_hash_.buffer_size();
     *verified_boot_state = verified_boot_state_;
     *device_locked = device_locked_;
     return KM_ERROR_OK;
