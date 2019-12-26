@@ -158,6 +158,10 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         case KM_TAG_UNIQUE_ID:
             return KM_ERROR_INVALID_KEY_BLOB;
 
+        case KM_TAG_ROLLBACK_RESISTANCE:
+            // Currently return UNAVAILABLE.
+            return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
+
         case KM_TAG_ROLLBACK_RESISTANT:
         case KM_TAG_APPLICATION_ID:
         case KM_TAG_APPLICATION_DATA:
