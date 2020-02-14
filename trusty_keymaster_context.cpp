@@ -21,6 +21,7 @@
 #include <lib/rng/trusty_rng.h>
 
 #include <keymaster/android_keymaster_utils.h>
+#include <keymaster/contexts/soft_attestation_cert.h>
 #include <keymaster/key_blob_utils/auth_encrypted_key_blob.h>
 #include <keymaster/key_blob_utils/ocb_utils.h>
 #include <keymaster/km_openssl/aes_key.h>
@@ -34,7 +35,6 @@
 #include <keymaster/logger.h>
 #include <keymaster/operation.h>
 #include <keymaster/wrapped_key.h>
-#include <soft_attestation_cert.h>
 
 #ifdef KEYMASTER_DEBUG
 #pragma message \
