@@ -19,6 +19,8 @@ KEYMASTER_DIR := trusty/user/app/keymaster
 NANOPB_DIR := external/nanopb-c
 MODULE := $(LOCAL_DIR)
 
+MANIFEST := $(LOCAL_DIR)/manifest.json
+
 # Uncomment the following lines to generate protobuf files and remove
 # $(KEYMASTER_DIR)/keymaster_attributes.pb.c from MODULE_SRCS. For detail
 # explanation, please see the comments in *.proto file.
@@ -33,7 +35,6 @@ MODULE := $(LOCAL_DIR)
 MODULE_SRCS += \
 	$(KEYMASTER_DIR)/secure_storage_manager.cpp \
 	$(LOCAL_DIR)/main.cpp \
-	$(LOCAL_DIR)/manifest.c \
 	$(KEYMASTER_ROOT)/android_keymaster/logger.cpp \
 	$(KEYMASTER_DIR)/keymaster_attributes.pb.c \
 	$(NANOPB_DIR)/pb_common.c \

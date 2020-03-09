@@ -18,6 +18,8 @@ NANOPB_DIR := external/nanopb-c
 
 MODULE := $(LOCAL_DIR)
 
+MANIFEST := $(LOCAL_DIR)/manifest.json
+
 KEYMASTER_ROOT := $(TRUSTY_TOP)/system/keymaster
 
 # Uncomment the following lines to generate protobuf files and remove
@@ -70,7 +72,6 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/triple_des_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/wrapped_key.cpp \
 	$(KEYMASTER_ROOT)/contexts/soft_attestation_cert.cpp \
-	$(LOCAL_DIR)/manifest.c \
 	$(LOCAL_DIR)/openssl_keymaster_enforcement.cpp \
 	$(LOCAL_DIR)/trusty_keymaster.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
