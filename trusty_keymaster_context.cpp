@@ -41,10 +41,23 @@
         "Compiling with fake Keymaster Root of Trust values! DO NOT SHIP THIS!"
 #endif
 
+// TRUSTY_KM_WRAPPING_KEY_SIZE controls the size of the AES key that is used
+// to wrap keys before allowing NS to hold on to them.
+// Previously, it had a hardcoded value of 16 bytes, but current guidance is to
+// expand this to a 256-bit (32-byte) key.
+//
+// The plan is to leave old devices as they are, and issue new devices with a
+// 32-byte key to ensure compatibility. New devices should set
+// TRUSTY_WRAPPING_KEY_SIZE to 32 in their device Makefile to control this.
+
+#ifndef TRUSTY_KM_WRAPPING_KEY_SIZE
+#define TRUSTY_KM_WRAPPING_KEY_SIZE 16
+#endif
+
 namespace keymaster {
 
 namespace {
-static const int kAesKeySize = 16;
+static const int kAesKeySize = TRUSTY_KM_WRAPPING_KEY_SIZE;
 static const int kCallsBetweenRngReseeds = 32;
 static const int kRngReseedSize = 64;
 static const uint8_t kMasterKeyDerivationData[kAesKeySize] = "KeymasterMaster";

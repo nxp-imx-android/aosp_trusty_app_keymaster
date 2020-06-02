@@ -108,6 +108,10 @@ MODULE_COMPILEFLAGS += -DPB_FIELD_16BIT
 # STATIC_ASSERT in pb.h might conflict with STATIC_ASSEET in compiler.h
 MODULE_COMPILEFLAGS += -DPB_NO_STATIC_ASSERT
 
+ifdef TRUSTY_KM_WRAPPING_KEY_SIZE
+    MODULE_COMPILEFLAGS += -DTRUSTY_KM_WRAPPING_KEY_SIZE=$(TRUSTY_KM_WRAPPING_KEY_SIZE)
+endif
+
 MODULE_DEPS += \
 	trusty/user/base/lib/libc-trusty \
 	trusty/user/base/lib/libstdc++-trusty \
