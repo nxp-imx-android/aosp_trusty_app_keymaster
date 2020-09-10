@@ -118,6 +118,7 @@ MODULE_DEPS += \
 	trusty/user/base/lib/rng \
 	trusty/user/base/lib/hwkey \
 	trusty/user/base/lib/storage \
+	trusty/user/base/lib/system_state \
 	external/boringssl \
 
 include $(LOCAL_DIR)/atap/rules.mk
