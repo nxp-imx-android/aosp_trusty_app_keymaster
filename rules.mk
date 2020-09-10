@@ -71,7 +71,6 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/triple_des_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/triple_des_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/wrapped_key.cpp \
-	$(KEYMASTER_ROOT)/contexts/soft_attestation_cert.cpp \
 	$(LOCAL_DIR)/openssl_keymaster_enforcement.cpp \
 	$(LOCAL_DIR)/trusty_keymaster.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
@@ -93,6 +92,15 @@ MODULE_INCLUDES += \
 MODULE_CPPFLAGS := -std=c++14 -fno-short-enums
 
 MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__
+
+# Set to true to fallback to soft_attestation_cert if not provisioned
+KEYMASTER_SOFT_ATTESTATION_FALLBACK ?= false
+ifeq (true,$(call TOBOOL,$(KEYMASTER_SOFT_ATTESTATION_FALLBACK)))
+MODULE_SRCS += \
+	$(KEYMASTER_ROOT)/contexts/soft_attestation_cert.cpp \
+
+MODULE_COMPILEFLAGS += -DKEYMASTER_SOFT_ATTESTATION_FALLBACK=1
+endif
 
 #
 # Defining KEYMASTER_DEBUG will allow configure() to succeed without root of
