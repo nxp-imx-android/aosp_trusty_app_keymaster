@@ -55,6 +55,11 @@ public:
     void SetAttestationKey(const SetAttestationKeyRequest& request,
                            SetAttestationKeyResponse* response);
 
+    // SetWrappedAttestationKey sets a single attestation key. There should be
+    // one call for each supported algorithm.
+    void SetWrappedAttestationKey(const SetAttestationKeyRequest& request,
+                                  SetAttestationKeyResponse* response);
+
     // ClearAttestationCertChain clears the attestation certificate chain for
     // the specified algorithm.
     void ClearAttestationCertChain(

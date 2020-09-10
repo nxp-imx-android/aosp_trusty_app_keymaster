@@ -85,6 +85,13 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
     response->error = ss_manager->WriteKeyToStorage(key_slot, key, key_size);
 }
 
+void TrustyKeymaster::SetWrappedAttestationKey(
+        const SetAttestationKeyRequest& request,
+        SetAttestationKeyResponse* response) {
+    // TODO: Unwrap and set
+    response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+}
+
 void TrustyKeymaster::ClearAttestationCertChain(
         const ClearAttestationCertChainRequest& request,
         ClearAttestationCertChainResponse* response) {

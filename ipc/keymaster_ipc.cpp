@@ -347,7 +347,8 @@ static bool provisioning_allowed(void) {
 static bool cmd_is_provisioning(uint32_t cmd) {
     return (cmd == KM_SET_ATTESTATION_KEY ||
             cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
-            cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN);
+            cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN ||
+            cmd == KM_SET_WRAPPED_ATTESTATION_KEY);
 }
 
 // Returns true if |cmd| is called from the bootloader
@@ -575,6 +576,12 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         LOG_D("Dispatching KM_CLEAR_ATTESTATION_CERT_CHAIN, size %d",
               payload_size);
         return do_dispatch(&TrustyKeymaster::ClearAttestationCertChain, msg,
+                           payload_size, out, out_size);
+
+    case KM_SET_WRAPPED_ATTESTATION_KEY:
+        LOG_D("Dispatching KM_SET_WRAPPED_ATTESTATION_KEY, size %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::SetWrappedAttestationKey, msg,
                            payload_size, out, out_size);
 
     default:
