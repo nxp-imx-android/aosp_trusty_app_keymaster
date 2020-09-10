@@ -179,6 +179,23 @@ struct VerifySecureUnlockRequest : public KeymasterMessage {
 
 struct VerifySecureUnlockResponse : public NoResponse {};
 
+struct ClearAttestationCertChainRequest : public KeymasterMessage {
+    explicit ClearAttestationCertChainRequest(int32_t ver = MAX_MESSAGE_VERSION)
+            : KeymasterMessage(ver) {}
+
+    size_t SerializedSize() const override { return sizeof(uint32_t); }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        return append_uint32_to_buf(buf, end, algorithm);
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return copy_uint32_from_buf(buf_ptr, end, &algorithm);
+    }
+
+    keymaster_algorithm_t algorithm;
+};
+
+struct ClearAttestationCertChainResponse : public NoResponse {};
+
 struct AppendAttestationCertChainRequest : public KeymasterMessage {
     explicit AppendAttestationCertChainRequest(
             int32_t ver = MAX_MESSAGE_VERSION)

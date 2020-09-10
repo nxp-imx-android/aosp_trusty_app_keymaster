@@ -76,6 +76,12 @@ public:
             const AppendAttestationCertChainRequest& request,
             AppendAttestationCertChainResponse* response);
 
+    // ClearAttestationCertChain clears the attestation certificate chain for
+    // the specified algorithm.
+    void ClearAttestationCertChain(
+            const ClearAttestationCertChainRequest& request,
+            ClearAttestationCertChainResponse* response);
+
     // AppendAttestationCertChain sets a single certificate in an attestation
     // certificate chain. The bootloader should push certificates into Trusty,
     // one certificate per request, starting with the attestation certificate.

@@ -331,12 +331,21 @@ static long keymaster_dispatch_secure(keymaster_chan_ctx* ctx,
     }
 }
 
+static bool provisioning_allowed(void) {
+    return !device->ConfigureCalled();
+}
+
+// Returns true if |cmd| is only allowed in provisioning mode
+static bool cmd_is_provisioning(uint32_t cmd) {
+    return (cmd == KM_SET_ATTESTATION_KEY ||
+            cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
+            cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN);
+}
+
 // Returns true if |cmd| is called from the bootloader
 static bool cmd_is_from_bootloader(uint32_t cmd) {
-    return (cmd == KM_SET_BOOT_PARAMS || cmd == KM_SET_ATTESTATION_KEY ||
+    return (cmd == KM_SET_BOOT_PARAMS || cmd == KM_ATAP_GET_CA_REQUEST ||
             cmd == KM_SET_ATTESTATION_KEY_ENC || cmd == KM_APPEND_ATTESTATION_CERT_CHAIN_ENC ||
-            cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
-            cmd == KM_ATAP_GET_CA_REQUEST ||
             cmd == KM_ATAP_SET_CA_RESPONSE_BEGIN ||
             cmd == KM_ATAP_SET_CA_RESPONSE_UPDATE ||
             cmd == KM_ATAP_SET_CA_RESPONSE_FINISH || cmd == KM_ATAP_READ_UUID ||
@@ -347,7 +356,7 @@ static bool cmd_is_from_bootloader(uint32_t cmd) {
 // Returns true if |cmd| can be used before the configure command
 static bool cmd_allowed_before_configure(uint32_t cmd) {
     return cmd == KM_CONFIGURE || cmd == KM_GET_VERSION ||
-           cmd_is_from_bootloader(cmd);
+           cmd_is_from_bootloader(cmd) || cmd_is_provisioning(cmd);
 }
 
 static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
@@ -372,6 +381,11 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
                   msg->cmd);
             return ERR_NOT_IMPLEMENTED;
         }
+    }
+
+    if (cmd_is_provisioning(msg->cmd) && !provisioning_allowed()) {
+        LOG_E("Provisioning command %d not allowed\n", msg->cmd);
+        return ERR_NOT_IMPLEMENTED;
     }
 
     switch (msg->cmd) {
@@ -579,6 +593,12 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
     case KM_APPEND_ATTESTATION_ID:
         LOG_D("Dispatch KM_APPEND_ATTESTATION_ID, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::AppendAttestationId, msg,
+                           payload_size, out, out_size);
+
+    case KM_CLEAR_ATTESTATION_CERT_CHAIN:
+        LOG_D("Dispatching KM_CLEAR_ATTESTATION_CERT_CHAIN, size %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::ClearAttestationCertChain, msg,
                            payload_size, out, out_size);
 
     default:
