@@ -16,6 +16,7 @@
 
 #include "keymaster_ipc.h"
 
+#include <lib/system_state/system_state.h>
 #include <lk/macros.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -331,8 +332,21 @@ static long keymaster_dispatch_secure(keymaster_chan_ctx* ctx,
     }
 }
 
+static bool system_state_provisioning_allowed_at_boot(void) {
+    uint64_t value = system_state_get_flag_default(
+            SYSTEM_STATE_FLAG_PROVISIONING_ALLOWED,
+            SYSTEM_STATE_FLAG_PROVISIONING_ALLOWED_VALUE_NOT_ALLOWED);
+    return value == SYSTEM_STATE_FLAG_PROVISIONING_ALLOWED_VALUE_ALLOWED ||
+           value ==
+                   SYSTEM_STATE_FLAG_PROVISIONING_ALLOWED_VALUE_ALLOWED_AT_BOOT;
+}
+
 static bool provisioning_allowed(void) {
-    return !device->ConfigureCalled();
+    if (device->ConfigureCalled()) {
+        return system_state_provisioning_allowed();
+    } else {
+        return system_state_provisioning_allowed_at_boot();
+    }
 }
 
 // Returns true if |cmd| is only allowed in provisioning mode
