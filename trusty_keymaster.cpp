@@ -46,6 +46,18 @@ void TrustyKeymaster::SetBootParams(const SetBootParamsRequest& request,
             request.device_locked, request.verified_boot_hash);
 }
 
+AttestationKeySlot keymaster_algorithm_to_key_slot(
+        keymaster_algorithm_t algorithm) {
+    switch (algorithm) {
+    case KM_ALGORITHM_RSA:
+        return AttestationKeySlot::kRsa;
+    case KM_ALGORITHM_EC:
+        return AttestationKeySlot::kEcdsa;
+    default:
+        return AttestationKeySlot::kInvalid;
+    }
+}
+
 void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
                                         SetAttestationKeyResponse* response) {
     if (response == nullptr)
@@ -61,14 +73,8 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
     const uint8_t* key = request.key_data.begin();
     AttestationKeySlot key_slot;
 
-    switch (request.algorithm) {
-    case KM_ALGORITHM_RSA:
-        key_slot = AttestationKeySlot::kRsa;
-        break;
-    case KM_ALGORITHM_EC:
-        key_slot = AttestationKeySlot::kEcdsa;
-        break;
-    default:
+    key_slot = keymaster_algorithm_to_key_slot(request.algorithm);
+    if (key_slot == AttestationKeySlot::kInvalid) {
         response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
         return;
     }
@@ -77,6 +83,49 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
         return;
     }
     response->error = ss_manager->WriteKeyToStorage(key_slot, key, key_size);
+}
+
+void TrustyKeymaster::ClearAttestationCertChain(
+        const ClearAttestationCertChainRequest& request,
+        ClearAttestationCertChainResponse* response) {
+    if (response == nullptr)
+        return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    AttestationKeySlot key_slot;
+
+    key_slot = keymaster_algorithm_to_key_slot(request.algorithm);
+    if (key_slot == AttestationKeySlot::kInvalid) {
+        response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+        return;
+    }
+
+    keymaster_error_t err = ss_manager->DeleteCertChainFromStorage(key_slot);
+    if (err != KM_ERROR_OK) {
+        LOG_E("Failed to delete cert chain.\n", 0);
+        response->error = err;
+        return;
+    }
+
+    uint32_t cert_chain_length = 0;
+    err = ss_manager->ReadCertChainLength(key_slot, &cert_chain_length);
+    if (err != KM_ERROR_OK) {
+        LOG_E("Failed to read cert chain length.\n", 0);
+        response->error = err;
+        return;
+    }
+    if (cert_chain_length != 0) {
+        LOG_E("Cert chain could not be deleted.\n", 0);
+        response->error = err;
+        return;
+    }
+
+    response->error = KM_ERROR_OK;
 }
 
 void TrustyKeymaster::AppendAttestationCertChain(
@@ -115,27 +164,6 @@ void TrustyKeymaster::AppendAttestationCertChain(
         KM_ERROR_OK) {
         LOG_E("Failed to read cert chain length, initialize to 0.\n", 0);
         cert_chain_length = 0;
-    }
-    if (cert_chain_length >= kMaxCertChainLength) {
-        // Delete the cert chain when it hits max length.
-        keymaster_error_t err =
-                ss_manager->DeleteCertChainFromStorage(key_slot);
-        if (err != KM_ERROR_OK) {
-            LOG_E("Failed to delete cert chain.\n", 0);
-            response->error = err;
-            return;
-        }
-        err = ss_manager->ReadCertChainLength(key_slot, &cert_chain_length);
-        if (err != KM_ERROR_OK) {
-            LOG_E("Failed to read cert chain length.\n", 0);
-            response->error = err;
-            return;
-        }
-        if (cert_chain_length != 0) {
-            LOG_E("Cert chain could not be deleted.\n", 0);
-            response->error = err;
-            return;
-        }
     }
     response->error = ss_manager->WriteCertToStorage(key_slot, cert, cert_size,
                                                      cert_chain_length);
