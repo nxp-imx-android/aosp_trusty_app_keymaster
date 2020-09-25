@@ -129,7 +129,7 @@ ifdef TRUSTY_KM_KAK_SIZE
     MODULE_COMPILEFLAGS += -DTRUSTY_KM_KAK_SIZE=$(TRUSTY_KM_KAK_SIZE)
 endif
 
-MODULE_DEPS += \
+MODULE_LIBRARY_DEPS += \
 	trusty/user/base/lib/libc-trusty \
 	trusty/user/base/lib/libstdc++-trusty \
 	trusty/user/base/lib/rng \
@@ -138,6 +138,7 @@ MODULE_DEPS += \
 	trusty/user/base/lib/keybox/client \
 	trusty/user/base/lib/storage \
 	trusty/user/base/lib/system_state \
+	trusty/user/base/lib/tipc \
 	external/boringssl \
 	external/libcppbor \
 
@@ -160,7 +161,7 @@ endif
 include $(LOCAL_DIR)/atap/rules.mk
 include $(LOCAL_DIR)/ipc/rules.mk
 
-include make/module.mk
+include make/trusted_app.mk
 
 # Include unit tests
 include trusty/user/app/keymaster/host_unittest/rules.mk

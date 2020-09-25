@@ -41,7 +41,7 @@ MODULE_SRCS += \
 	$(NANOPB_DIR)/pb_encode.c \
 	$(NANOPB_DIR)/pb_decode.c \
 
-MODULE_DEPS += \
+MODULE_LIBRARY_DEPS += \
 	trusty/user/base/lib/libc-trusty \
 	trusty/user/base/lib/libstdc++-trusty \
 	trusty/user/base/lib/rng \
@@ -62,5 +62,5 @@ MODULE_INCLUDES += \
 	$(NANOPB_DIR) \
 	$(TRUSTY_TOP)/system/iot/attestation/atap \
 
-include make/module.mk
+include make/trusted_app.mk
 
