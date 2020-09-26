@@ -29,6 +29,8 @@
 
 #include <keymaster/UniquePtr.h>
 
+#include <openssl/crypto.h>
+
 #include "trusty_keymaster.h"
 #include "trusty_logger.h"
 
@@ -833,6 +835,14 @@ int main(void) {
     TrustyLogger::initialize();
 
     LOG_I("Initializing", 0);
+
+    // Run the BoringSSL self-tests
+    if (!BORINGSSL_self_test()) {
+        LOG_E("BoringSSL self-test: FAILED", 0);
+        return ERR_GENERIC;
+    } else {
+        LOG_I("BoringSSL self-test: PASSED", 0);
+    }
 
     GetVersionRequest request;
     GetVersionResponse response;
