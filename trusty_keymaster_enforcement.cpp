@@ -17,6 +17,7 @@
 #include "trusty_keymaster_enforcement.h"
 
 #include <openssl/hmac.h>
+#include <trusty/time.h>
 
 #include <hardware/hw_auth_token.h>
 #include <keymaster/android_keymaster_utils.h>
