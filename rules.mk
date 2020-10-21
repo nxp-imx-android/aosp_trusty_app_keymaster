@@ -128,6 +128,7 @@ MODULE_DEPS += \
 	trusty/user/base/lib/storage \
 	trusty/user/base/lib/system_state \
 	external/boringssl \
+	external/libcppbor \
 
 include $(LOCAL_DIR)/atap/rules.mk
 include $(LOCAL_DIR)/ipc/rules.mk
