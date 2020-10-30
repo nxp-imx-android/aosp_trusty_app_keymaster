@@ -55,6 +55,7 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/attestation_record.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/attestation_utils.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/block_cipher_operation.cpp \
+	$(KEYMASTER_ROOT)/km_openssl/certificate_utils.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ckdf.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ec_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ec_key_factory.cpp \
