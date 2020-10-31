@@ -120,6 +120,10 @@ ifdef TRUSTY_KM_WRAPPING_KEY_SIZE
     MODULE_COMPILEFLAGS += -DTRUSTY_KM_WRAPPING_KEY_SIZE=$(TRUSTY_KM_WRAPPING_KEY_SIZE)
 endif
 
+ifdef TRUSTY_KM_KAK_SIZE
+    MODULE_COMPILEFLAGS += -DTRUSTY_KM_KAK_SIZE=$(TRUSTY_KM_KAK_SIZE)
+endif
+
 MODULE_DEPS += \
 	trusty/user/base/lib/libc-trusty \
 	trusty/user/base/lib/libstdc++-trusty \

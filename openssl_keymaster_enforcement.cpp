@@ -28,11 +28,12 @@
 #include <keymaster/km_openssl/openssl_err.h>
 #include <keymaster/km_openssl/openssl_utils.h>
 
+#include <lib/hwkey/hwkey.h>
+
 namespace keymaster {
 
 namespace {
 
-constexpr uint8_t kFakeKeyAgreementKey[32] = {};
 constexpr const char* kSharedHmacLabel = "KeymasterSharedMac";
 constexpr const char* kMacVerificationString = "Keymaster HMAC Verification";
 constexpr const char* kAuthVerificationLabel = "Auth Verification";
@@ -150,6 +151,12 @@ bool operator==(const HmacSharingParameters& a,
 keymaster_error_t OpenSSLKeymasterEnforcement::ComputeSharedHmac(
         const HmacSharingParametersArray& params_array,
         KeymasterBlob* sharingCheck) {
+    KeymasterKeyBlob kak;
+    keymaster_error_t kakError = GetKeyAgreementKey(&kak);
+    if (kakError != KM_ERROR_OK) {
+        return kakError;
+    }
+
     size_t num_chunks = params_array.num_params * 2;
     UniquePtr<keymaster_blob_t[]> context_chunks(
             new (std::nothrow) keymaster_blob_t[num_chunks]);
@@ -172,8 +179,7 @@ keymaster_error_t OpenSSLKeymasterEnforcement::ComputeSharedHmac(
     if (!hmac_key_.Reset(SHA256_DIGEST_LENGTH))
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     keymaster_error_t error = ckdf(
-            KeymasterKeyBlob(kFakeKeyAgreementKey,
-                             sizeof(kFakeKeyAgreementKey)),
+            move(kak),
             KeymasterBlob(reinterpret_cast<const uint8_t*>(kSharedHmacLabel),
                           strlen(kSharedHmacLabel)),
             context_chunks.get(), num_chunks,  //
@@ -211,4 +217,37 @@ VerifyAuthorizationResponse OpenSSLKeymasterEnforcement::VerifyAuthorization(
     return response;
 }
 
+keymaster_error_t OpenSSLKeymasterEnforcement::GetKeyAgreementKey(
+        KeymasterKeyBlob* kak) {
+    uint32_t keySize = kKeyAgreementKeySize;
+
+    if (!kak->Reset(keySize)) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
+
+    int rc = hwkey_open();
+    if (rc < 0) {
+        LOG_E("Failed to connect to hwkey: %d", rc);
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+    hwkey_session_t hwkey_session = (hwkey_session_t)rc;
+
+    rc = hwkey_get_keyslot_data(hwkey_session, "com.android.trusty.keymint.kak",
+                                kak->writable_data(), &keySize);
+
+    hwkey_close(hwkey_session);
+
+    if (rc < 0) {
+        LOG_E("Getting KAK failed.\n", 0);
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+
+    if (keySize != kKeyAgreementKeySize) {
+        LOG_E("KAK has the wrong size: %zu != %zu.\n", keySize,
+              kKeyAgreementKeySize);
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+
+    return KM_ERROR_OK;
+}
 }  // namespace keymaster

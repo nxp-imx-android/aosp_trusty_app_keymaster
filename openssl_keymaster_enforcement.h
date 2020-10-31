@@ -21,6 +21,16 @@
 #include <keymaster/android_keymaster_messages.h>
 #include <keymaster/keymaster_enforcement.h>
 
+/*
+ * Controls size of KAK used for Strongbox agreement.
+ * This size must match the size of the com.android.trusty.keymint.kak keyslot
+ * Defaults to 32 to allow devices which do not have a Strongbox to use the
+ * keyslot in our sample code without configuration.
+ */
+#ifndef TRUSTY_KM_KAK_SIZE
+#define TRUSTY_KM_KAK_SIZE 32
+#endif
+
 namespace keymaster {
 
 class OpenSSLKeymasterEnforcement : public KeymasterEnforcement {
@@ -42,6 +52,8 @@ public:
             const VerifyAuthorizationRequest& request) override;
 
 private:
+    static const size_t kKeyAgreementKeySize = TRUSTY_KM_KAK_SIZE;
+    keymaster_error_t GetKeyAgreementKey(KeymasterKeyBlob* kak);
     bool have_saved_params_ = false;
     HmacSharingParameters saved_params_;
     KeymasterKeyBlob hmac_key_;
