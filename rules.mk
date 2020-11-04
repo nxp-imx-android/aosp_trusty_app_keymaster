@@ -90,7 +90,7 @@ MODULE_INCLUDES += \
 	$(LOCAL_DIR) \
 	$(NANOPB_DIR) \
 
-MODULE_CPPFLAGS := -std=c++14 -fno-short-enums
+MODULE_CPPFLAGS := -fno-short-enums
 
 MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__
 
