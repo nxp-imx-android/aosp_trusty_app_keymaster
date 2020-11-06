@@ -37,6 +37,8 @@
 #include <keymaster/operation.h>
 #include <keymaster/wrapped_key.h>
 
+#include "trusty_aes_key.h"
+
 #ifdef KEYMASTER_DEBUG
 #pragma message \
         "Compiling with fake Keymaster Root of Trust values! DO NOT SHIP THIS!"
@@ -102,8 +104,8 @@ TrustyKeymasterContext::TrustyKeymasterContext()
                                                 *this /* random_source */));
     ec_factory_.reset(
             new EcKeyFactory(*this /* blob_maker */, *this /* context */));
-    aes_factory_.reset(new AesKeyFactory(*this /* blob_maker */,
-                                         *this /* random_source */));
+    aes_factory_.reset(new TrustyAesKeyFactory(*this /* blob_maker */,
+                                               *this /* random_source */));
     hmac_factory_.reset(new HmacKeyFactory(*this /* blob_maker */,
                                            *this /* random_source */));
     verified_boot_key_.Reinitialize("Unbound", 7);
@@ -215,6 +217,10 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         case KM_TAG_EC_CURVE:
         case KM_TAG_ECIES_SINGLE_HASH_MODE:
         case KM_TAG_TRUSTED_CONFIRMATION_REQUIRED:
+#if WITH_HWWSK_SUPPORT
+        // keep KM_TAG_STORAGE_KEY is HWWSK service is enabled
+        case KM_TAG_STORAGE_KEY:
+#endif
             hw_enforced->push_back(entry);
             break;
 

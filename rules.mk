@@ -74,6 +74,7 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/triple_des_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/wrapped_key.cpp \
 	$(LOCAL_DIR)/openssl_keymaster_enforcement.cpp \
+	$(LOCAL_DIR)/trusty_aes_key.cpp \
 	$(LOCAL_DIR)/trusty_keymaster.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_enforcement.cpp \
@@ -131,10 +132,19 @@ MODULE_DEPS += \
 	trusty/user/base/lib/libstdc++-trusty \
 	trusty/user/base/lib/rng \
 	trusty/user/base/lib/hwkey \
+	trusty/user/base/lib/hwwsk \
 	trusty/user/base/lib/storage \
 	trusty/user/base/lib/system_state \
 	external/boringssl \
 	external/libcppbor \
+
+# If KEYMASTER_WITH_HWWSK_SUPPORT is set Keymaster will be
+#  compleled with Hardware Wrapped Storage key support
+ifeq (true,$(call TOBOOL,$(KEYMASTER_WITH_HWWSK_SUPPORT)))
+MODULE_DEFINES += \
+     WITH_HWWSK_SUPPORT=1 \
+
+endif
 
 include $(LOCAL_DIR)/atap/rules.mk
 include $(LOCAL_DIR)/ipc/rules.mk
