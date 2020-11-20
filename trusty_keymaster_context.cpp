@@ -90,7 +90,8 @@ bool UpgradeIntegerTag(keymaster_tag_t tag,
 }  // anonymous namespace
 
 TrustyKeymasterContext::TrustyKeymasterContext()
-        : enforcement_policy_(this),
+        : AttestationRecordContext(KmVersion::KEYMASTER_4),
+          enforcement_policy_(this),
           rng_initialized_(false),
           calls_since_reseed_(0) {
     LOG_D("Creating TrustyKeymaster", 0);
