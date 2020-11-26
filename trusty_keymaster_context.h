@@ -41,6 +41,10 @@ class TrustyKeymasterContext : public KeymasterContext,
 public:
     TrustyKeymasterContext();
 
+    KmVersion GetKmVersion() const override {
+        return AttestationRecordContext::GetKmVersion();
+    }
+
     keymaster_security_level_t GetSecurityLevel() const override {
         return KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT;
     }
