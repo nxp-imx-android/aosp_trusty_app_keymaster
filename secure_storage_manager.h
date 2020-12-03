@@ -37,6 +37,8 @@ static const size_t kProductIdSize = 16;
 
 static const int kMaxCertChainLength = 3;
 
+static const int kHardwareBoundKeySize = 32;
+
 // RSA and ECDSA are set to be the same as keymaster_algorithm_t.
 enum class AttestationKeySlot {
     kInvalid = 0,
@@ -198,6 +200,17 @@ public:
      * Delete all attestation keys and certificate chains from RPMB.
      */
     keymaster_error_t DeleteAllAttestationData();
+
+    keymaster_error_t WriteAttestationID(
+            const AttestationID* attestation_id,
+            bool commit);
+
+    /**
+     * Reads Attestation IDs from storage.
+     */
+    keymaster_error_t ReadAttestationID(AttestationID** attestation_id_p);
+
+    keymaster_error_t DeleteAttestationID(bool commit);
 
 #ifdef KEYMASTER_LEGACY_FORMAT
 

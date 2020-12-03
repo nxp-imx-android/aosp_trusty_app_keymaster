@@ -16,6 +16,9 @@
 
 #include "secure_storage_manager.h"
 #include "keymaster_attributes.pb.h"
+#include "openssl_keymaster_enforcement.h"
+
+#include <assert.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -38,6 +41,8 @@ const char* kAttestKeyCertPrefix = "AttestKeyCert";
 const char* kLegacyAttestKeyPrefix = "AttestKey.";
 // Name of the legacy certificate file prefix.
 const char* kLegacyAttestCertPrefix = "AttestCert.";
+// Name of the attestation IDs file prefix.
+const char* kAttestIDPrefix = "AttestID";
 
 // Name of the file to store keymaster attributes in a protobuf format.
 const char* kAttributeFileName = "Attribute";
@@ -573,6 +578,58 @@ keymaster_error_t SecureStorageManager::WriteAttestationKey(
 
     return EncodeToFile(AttestationKey_fields, attestation_key, key_file,
                         commit);
+}
+
+keymaster_error_t SecureStorageManager::ReadAttestationID(
+        AttestationID** attestation_id_p) {
+    char key_file[kStorageIdLengthMax];
+    snprintf(key_file, kStorageIdLengthMax, "%s", kAttestIDPrefix);
+
+    UniquePtr<AttestationID> attestation_id(
+            new AttestationID(AttestationID_init_zero));
+    if (!attestation_id.get()) {
+        CloseSession();
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
+    keymaster_error_t err = DecodeFromFile(AttestationID_fields,
+                                           attestation_id.get(), key_file);
+    if (err < 0) {
+        LOG_E("Error: [%d] decoding from file '%s'", err, key_file);
+        CloseSession();
+        return err;
+    }
+    *attestation_id_p = attestation_id.release();
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t SecureStorageManager::WriteAttestationID(
+        const AttestationID* attestation_id,
+        bool commit) {
+    char id_file[kStorageIdLengthMax];
+    snprintf(id_file, kStorageIdLengthMax, "%s", kAttestIDPrefix);
+
+    keymaster_error_t err = EncodeToFile(AttestationID_fields, attestation_id, id_file, commit);
+    if (err != KM_ERROR_OK) {
+        CloseSession();
+    }
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t SecureStorageManager::DeleteAttestationID(bool commit) {
+    char key_file[kStorageIdLengthMax];
+    snprintf(key_file, kStorageIdLengthMax, "%s", kAttestIDPrefix);
+    int rc = storage_delete_file(session_handle_, key_file,
+                                 commit ? STORAGE_OP_COMPLETE : 0);
+    if (rc < 0 && rc != ERR_NOT_FOUND) {
+        LOG_E("Error: [%d] deleting storage object '%s'", rc, key_file);
+        if (commit) {
+            // If DeleteKey is part of a larger operations, then do not close
+            // the session.
+            CloseSession();
+        }
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+    return KM_ERROR_OK;
 }
 
 void SecureStorageManager::CloseSession() {
