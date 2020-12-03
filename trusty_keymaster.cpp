@@ -20,7 +20,7 @@
 
 #include <lib/hwkey/hwkey.h>
 #include <uapi/err.h>
-#include <lib/hwkey/hwkey.h>
+#include <openssl/sha.h>
 
 #ifndef DISABLE_ATAP_SUPPORT
 #include <libatap/libatap.h>
@@ -30,6 +30,8 @@ const size_t kMaxCaResponseSize = 20000;
 #endif
 
 namespace keymaster {
+
+static const int kIDSizeMax = 2048;
 
 long TrustyKeymaster::GetAuthTokenKey(keymaster_key_blob_t* key) {
     keymaster_error_t error = context_->GetAuthTokenKey(key);
@@ -515,4 +517,129 @@ void TrustyKeymaster::AtapSetProductId(const AtapSetProductIdRequest& request,
     response->error = ss_manager->SetProductId(product_id.begin());
 #endif
 }
+
+void TrustyKeymaster::DestroyAttestationIds(const DestroyAttestationIdsRequest& request,
+                                       DestroyAttestationIdsResponse* response) {
+    if (response == nullptr)
+        return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    response->error = ss_manager->DeleteAttestationID(true);
+}
+
+void TrustyKeymaster::AppendAttestationId(
+        const AppendAttestationIdRequest& request,
+        AppendAttestationIdResponse* response) {
+    if (response == nullptr)
+        return;
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    const uint8_t* id = request.id_data.begin();
+    size_t id_size = request.id_data.buffer_size();
+    if (id_size == 0) {
+        response->error = KM_ERROR_INVALID_INPUT_LENGTH;
+        return;
+    }
+
+    // Load hardware bound key
+    uint8_t hbk[kHardwareBoundKeySize];
+    uint32_t hbk_size = kHardwareBoundKeySize;
+    keymaster_error_t err = context_->LoadHbk(hbk, &hbk_size);
+    if (err != KM_ERROR_OK) {
+        LOG_E("Error: failed to load hardward bound key, err: %d\n", err);
+        response->error = err;
+        return;
+    }
+
+    // Read Device IDs in storage
+    AttestationID* attestation_id_p;
+    err = ss_manager->ReadAttestationID(&attestation_id_p);
+    if (err != KM_ERROR_OK) {
+        response->error = err;
+        return;
+    }
+
+    KeymasterBlob hmac_out;
+    keymaster_blob_t data;
+    keymaster_blob_t data_chunks[1];
+    keymaster_key_blob_t hmac_key = {
+            reinterpret_cast<const uint8_t*>(hbk),
+            kHardwareBoundKeySize};
+    // Sanity check the loaded IDs
+    UniquePtr<AttestationID> attestation_id(attestation_id_p);
+    if (attestation_id->has_hmac_all || attestation_id->has_hmac_id) {
+        // hmac_all should be HMAC(HBK, hmac_id)
+        data.data = reinterpret_cast<const uint8_t*>(attestation_id->hmac_id.bytes);
+        data.data_length = attestation_id->hmac_id.size;
+        data_chunks[0] = data;
+        err = OpenSSLKeymasterEnforcement::hmacSha256(hmac_key, data_chunks, 1, &hmac_out);
+        if (err != KM_ERROR_OK) {
+            LOG_E("Error: failed to compute hmacsha256 for device ID, err: %d\n", err);
+            response->error = err;
+            return;
+        }
+
+        if (memcmp(hmac_out.data, attestation_id->hmac_all.bytes, SHA256_DIGEST_LENGTH)) {
+            LOG_E("Error: Device ID was destoried!", 0);
+            // Delete the device ID when error
+            ss_manager->DeleteAttestationID(true);
+            response->error = KM_ERROR_CANNOT_ATTEST_IDS;
+            return;
+        }
+    }
+
+    if (attestation_id->hmac_id.size + SHA256_DIGEST_LENGTH > kIDSizeMax) {
+        LOG_E("Error: Device IDs hamc exceeds the limit!\n", 0);
+        response->error = KM_ERROR_CANNOT_ATTEST_IDS;
+        return;
+    }
+
+    // Compute the hmacsha256 of input ID
+    data.data = reinterpret_cast<const uint8_t*>(id);
+    data.data_length = id_size;
+    data_chunks[0] = data;
+
+    err = OpenSSLKeymasterEnforcement::hmacSha256(hmac_key, data_chunks, 1, &hmac_out);
+    if (err != KM_ERROR_OK) {
+        LOG_E("Error: failed to compute hmacsha256 for device ID, err: %d\n", err);
+        response->error = err;
+        return;
+    }
+
+    // Append id hmac, hmac_id = HMAC(HBK, ID1) || HMAC(HBK, ID2) || ... || HMAC(HBK, IDn)
+    memcpy(attestation_id->hmac_id.bytes + attestation_id->hmac_id.size,
+           hmac_out.data, SHA256_DIGEST_LENGTH);
+    attestation_id->hmac_id.size += SHA256_DIGEST_LENGTH;
+
+    // Update hmac_all, hmac_all = HMAC(HBK, hmac_id)
+    data.data = reinterpret_cast<const uint8_t*>(attestation_id->hmac_id.bytes);
+    data.data_length = attestation_id->hmac_id.size;
+    data_chunks[0] = data;
+    err = OpenSSLKeymasterEnforcement::hmacSha256(hmac_key, data_chunks, 1, &hmac_out);
+    if (err != KM_ERROR_OK) {
+        LOG_E("Error: failed to compute hmacsha256 for device IDs, err: %d\n", err);
+        // Delete the device ID when error
+        ss_manager->DeleteAttestationID(true);
+        response->error = err;
+        return;
+    }
+    memcpy(attestation_id->hmac_all.bytes, hmac_out.data, SHA256_DIGEST_LENGTH);
+    attestation_id->hmac_all.size = SHA256_DIGEST_LENGTH;
+
+    attestation_id->has_hmac_id  = true;
+    attestation_id->has_hmac_all = true;
+
+    response->error = ss_manager->WriteAttestationID(attestation_id.get(), true);
+}
+
 }  // namespace keymaster

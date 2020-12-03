@@ -238,6 +238,25 @@ struct AtapSetProductIdResponse : public NoResponse {};
 struct AtapReadUuidRequest : public NoRequest {};
 struct AtapReadUuidResponse : public RawBufferResponse {};
 
+struct AppendAttestationIdRequest : public KeymasterMessage {
+    explicit AppendAttestationIdRequest(int32_t ver = MAX_MESSAGE_VERSION)
+            : KeymasterMessage(ver) {}
+
+    size_t SerializedSize() const override {
+        return id_data.SerializedSize();
+    }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        return id_data.Serialize(buf, end);
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return id_data.Deserialize(buf_ptr, end);
+    }
+
+    Buffer id_data;
+};
+
+struct AppendAttestationIdResponse : public NoResponse {};
+
 }  // namespace keymaster
 
 #endif  // TRUSTY_APP_KEYMASTER_TRUSTY_KEYMASTER_MESSAGES_H_
