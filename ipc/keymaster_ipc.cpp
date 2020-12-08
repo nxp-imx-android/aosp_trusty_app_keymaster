@@ -79,7 +79,6 @@ static tipc_event_handler keymaster_port_evt_handler_non_secure = {
 static void keymaster_chan_handler(const uevent_t* ev, void* priv);
 
 TrustyKeymaster* device;
-int32_t message_version = -1;
 
 class MessageDeleter {
 public:
@@ -187,8 +186,6 @@ static long deserialize_request(struct keymaster_message* msg,
                                 uint32_t payload_size,
                                 Request& req) {
     const uint8_t* payload = msg->payload;
-    req.message_version = message_version;
-
     if (!req.Deserialize(&payload, msg->payload + payload_size))
         return ERR_NOT_VALID;
 
@@ -199,7 +196,6 @@ template <typename Response>
 static long serialize_response(Response& rsp,
                                keymaster::UniquePtr<uint8_t[]>* out,
                                uint32_t* out_size) {
-    rsp.message_version = message_version;
     *out_size = rsp.SerializedSize();
 
     out->reset(new uint8_t[*out_size]);
@@ -842,17 +838,6 @@ int main(void) {
         return ERR_GENERIC;
     } else {
         LOG_I("BoringSSL self-test: PASSED", 0);
-    }
-
-    GetVersionRequest request;
-    GetVersionResponse response;
-    device->GetVersion(request, &response);
-    if (response.error == KM_ERROR_OK) {
-        message_version = MessageVersion(response.major_ver, response.minor_ver,
-                                         response.subminor_ver);
-    } else {
-        LOG_E("Error %d determining AndroidKeymaster version.", response.error);
-        return ERR_GENERIC;
     }
 
     keymaster_srv_ctx ctx;

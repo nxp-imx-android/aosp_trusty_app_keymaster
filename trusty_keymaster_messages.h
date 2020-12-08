@@ -25,7 +25,7 @@ namespace keymaster {
  * Generic struct for Keymaster requests which hold a single raw buffer.
  */
 struct RawBufferRequest : public KeymasterMessage {
-    explicit RawBufferRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit RawBufferRequest(int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return data.SerializedSize(); }
@@ -43,7 +43,7 @@ struct RawBufferRequest : public KeymasterMessage {
  * Generic struct for Keymaster responses which hold a single raw buffer.
  */
 struct RawBufferResponse : public KeymasterResponse {
-    explicit RawBufferResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit RawBufferResponse(int32_t ver = kDefaultMessageVersion)
             : KeymasterResponse(ver) {}
 
     size_t NonErrorSerializedSize() const override {
@@ -66,7 +66,7 @@ struct RawBufferResponse : public KeymasterResponse {
  * data.
  */
 struct NoResponse : public KeymasterResponse {
-    explicit NoResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit NoResponse(int32_t ver = kDefaultMessageVersion)
             : KeymasterResponse(ver) {}
 
     size_t NonErrorSerializedSize() const override { return 0; }
@@ -81,7 +81,7 @@ struct NoResponse : public KeymasterResponse {
 };
 
 struct NoRequest : public KeymasterMessage {
-    explicit NoRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit NoRequest(int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return 0; }
@@ -94,7 +94,7 @@ struct NoRequest : public KeymasterMessage {
 };
 
 struct SetBootParamsRequest : public KeymasterMessage {
-    explicit SetBootParamsRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SetBootParamsRequest(int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override {
@@ -131,7 +131,7 @@ struct SetBootParamsRequest : public KeymasterMessage {
 struct SetBootParamsResponse : public NoResponse {};
 
 struct SetAttestationKeyRequest : public KeymasterMessage {
-    explicit SetAttestationKeyRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SetAttestationKeyRequest(int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override {
@@ -153,7 +153,8 @@ struct SetAttestationKeyRequest : public KeymasterMessage {
 struct SetAttestationKeyResponse : public NoResponse {};
 
 struct ClearAttestationCertChainRequest : public KeymasterMessage {
-    explicit ClearAttestationCertChainRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit ClearAttestationCertChainRequest(
+            int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return sizeof(uint32_t); }
@@ -171,7 +172,7 @@ struct ClearAttestationCertChainResponse : public NoResponse {};
 
 struct AppendAttestationCertChainRequest : public KeymasterMessage {
     explicit AppendAttestationCertChainRequest(
-            int32_t ver = MAX_MESSAGE_VERSION)
+            int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override {
@@ -202,7 +203,7 @@ struct AtapGetCaRequestRequest : public RawBufferRequest {};
 struct AtapGetCaRequestResponse : public RawBufferResponse {};
 
 struct AtapSetCaResponseBeginRequest : public KeymasterMessage {
-    explicit AtapSetCaResponseBeginRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit AtapSetCaResponseBeginRequest(int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return sizeof(uint32_t); }
