@@ -250,4 +250,21 @@ keymaster_error_t OpenSSLKeymasterEnforcement::GetKeyAgreementKey(
 
     return KM_ERROR_OK;
 }
+
+keymaster_error_t OpenSSLKeymasterEnforcement::GetHmacKey(
+            keymaster_key_blob_t* key) {
+    if ((key == nullptr) || (key->key_material == nullptr)) {
+        return KM_ERROR_UNEXPECTED_NULL_POINTER;
+    }
+
+    if (hmac_key_.key_material_size != SHA256_DIGEST_LENGTH) {
+        return KM_ERROR_INVALID_ARGUMENT;
+    }
+
+    memcpy((void*)key->key_material, hmac_key_.key_material,
+           hmac_key_.key_material_size);
+    key->key_material_size = hmac_key_.key_material_size;
+
+    return KM_ERROR_OK;
+}
 }  // namespace keymaster

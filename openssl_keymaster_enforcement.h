@@ -50,6 +50,7 @@ public:
             KeymasterBlob* sharingCheck) override;
     VerifyAuthorizationResponse VerifyAuthorization(
             const VerifyAuthorizationRequest& request) override;
+    keymaster_error_t GetHmacKey(keymaster_key_blob_t* key);
 
 private:
     static const size_t kKeyAgreementKeySize = TRUSTY_KM_KAK_SIZE;
