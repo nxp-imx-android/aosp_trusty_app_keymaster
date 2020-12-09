@@ -520,9 +520,18 @@ keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
 }
 
 bool TrustyKeymasterContext::InitializeAuthTokenKey() {
-    if (GenerateRandom(auth_token_key_, kAuthTokenKeySize) != KM_ERROR_OK)
-        return false;
-    auth_token_key_initialized_ = true;
+    if (auth_token_key_initialized_)
+        return true;
+
+    keymaster_key_blob_t key;
+    key.key_material = auth_token_key_;
+    key.key_material_size = kAuthTokenKeySize;
+    keymaster_error_t error = enforcement_policy_.GetHmacKey(&key);
+    if (error == KM_ERROR_OK)
+        auth_token_key_initialized_ = true;
+    else
+        auth_token_key_initialized_ = false;
+
     return auth_token_key_initialized_;
 }
 

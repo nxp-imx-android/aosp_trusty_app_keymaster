@@ -44,6 +44,7 @@ public:
             const keymaster_blob_t data_chunks[],
             size_t data_chunk_count,
             KeymasterBlob* output);
+    keymaster_error_t GetHmacKey(keymaster_key_blob_t* key);
 
 private:
     bool have_saved_params_ = false;
