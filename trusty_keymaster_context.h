@@ -94,10 +94,10 @@ public:
         return &enforcement_policy_;
     }
 
-    keymaster_error_t GenerateAttestation(
+    CertificateChain GenerateAttestation(
             const Key& key,
             const AuthorizationSet& attest_params,
-            CertChainPtr* cert_chain) const override;
+            keymaster_error_t* error) const override;
 
     keymaster_error_t GenerateUniqueId(uint64_t creation_date_time,
                                        const keymaster_blob_t& application_id,

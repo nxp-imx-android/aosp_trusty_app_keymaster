@@ -57,7 +57,7 @@ extern "C" {
 #define TLOG_TAG "km_storage_test"
 
 using keymaster::AttestationKeySlot;
-using keymaster::CertificateChainDelete;
+using keymaster::CertificateChain;
 using keymaster::kAttestationUuidSize;
 using keymaster::KeymasterKeyBlob;
 using keymaster::kProductIdSize;
@@ -109,7 +109,7 @@ void TestCertChainStorage(AttestationKeySlot key_slot, bool chain_exists) {
     keymaster::UniquePtr<uint8_t[]> write_cert[CHAIN_LENGTH];
     unsigned int i = 0;
     uint32_t cert_chain_length;
-    keymaster::UniquePtr<keymaster_cert_chain_t, CertificateChainDelete> chain;
+    CertificateChain chain;
 
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
     ASSERT_NE(nullptr, ss_manager);
@@ -131,23 +131,21 @@ void TestCertChainStorage(AttestationKeySlot key_slot, bool chain_exists) {
         }
     }
 
-    chain.reset(new keymaster_cert_chain_t);
-    ASSERT_NE(nullptr, chain.get());
-    error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
+    error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
     ASSERT_EQ(KM_ERROR_OK, error);
-    ASSERT_EQ(CHAIN_LENGTH, chain.get()->entry_count);
+    ASSERT_EQ(CHAIN_LENGTH, chain.entry_count);
     for (i = 0; i < CHAIN_LENGTH; ++i) {
-        ASSERT_EQ(DATA_SIZE, chain.get()->entries[i].data_length);
-        ASSERT_EQ(0, memcmp(write_cert[i].get(), chain.get()->entries[i].data,
+        ASSERT_EQ(DATA_SIZE, chain.entries[i].data_length);
+        ASSERT_EQ(0, memcmp(write_cert[i].get(), chain.entries[i].data,
                             DATA_SIZE));
     }
 
     error = ss_manager->DeleteCertChainFromStorage(key_slot);
     ASSERT_EQ(KM_ERROR_OK, error);
-    chain.reset(new keymaster_cert_chain_t);
-    error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
+    chain.Clear();
+    error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
     ASSERT_EQ(KM_ERROR_OK, error);
-    ASSERT_EQ(0, chain.get()->entry_count);
+    ASSERT_EQ(0, chain.entry_count);
 
 test_abort:;
 }
@@ -375,7 +373,7 @@ void TestFormatChange() {
     AttestationKeySlot key_slots[] = {AttestationKeySlot::kRsa,
                                       AttestationKeySlot::kEcdsa};
     keymaster::UniquePtr<uint8_t[]> write_cert[2][CHAIN_LENGTH];
-    keymaster::UniquePtr<keymaster_cert_chain_t, CertificateChainDelete> chain;
+    CertificateChain chain;
 
     SecureStorageManager* ss_manager =
             SecureStorageManager::get_instance(false);
@@ -422,16 +420,15 @@ void TestFormatChange() {
         ASSERT_EQ(KM_ERROR_OK, error);
         ASSERT_EQ(CHAIN_LENGTH, cert_chain_length);
 
-        chain.reset(new keymaster_cert_chain_t);
-        ASSERT_NE(nullptr, chain.get());
-        error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
+        chain.Clear();
+        error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
         ASSERT_EQ(KM_ERROR_OK, error);
-        ASSERT_EQ(CHAIN_LENGTH, chain.get()->entry_count);
+        ASSERT_EQ(CHAIN_LENGTH, chain.entry_count);
 
         for (int index = 0; index < CHAIN_LENGTH; index++) {
-            ASSERT_EQ(DATA_SIZE, chain.get()->entries[i].data_length);
+            ASSERT_EQ(DATA_SIZE, chain.entries[i].data_length);
             ASSERT_EQ(0, memcmp(write_cert[i][index].get(),
-                                chain.get()->entries[index].data, DATA_SIZE));
+                                chain.entries[index].data, DATA_SIZE));
         }
     }
 

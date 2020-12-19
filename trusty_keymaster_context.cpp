@@ -624,13 +624,8 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
     return result;
 }
 
-CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
-                              keymaster_error_t* error) {
-    CertChainPtr chain(new keymaster_cert_chain_t);
-    if (!chain.get()) {
-        *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
-        return nullptr;
-    }
+CertificateChain AttestationChain(keymaster_algorithm_t algorithm,
+                                  keymaster_error_t* error) {
     AttestationKeySlot key_slot;
     switch (algorithm) {
     case KM_ALGORITHM_RSA:
@@ -641,69 +636,63 @@ CertChainPtr AttestationChain(keymaster_algorithm_t algorithm,
         break;
     default:
         *error = KM_ERROR_UNSUPPORTED_ALGORITHM;
-        return nullptr;
+        return {};
     }
-    memset(chain.get(), 0, sizeof(keymaster_cert_chain_t));
 
+    CertificateChain chain;
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
     if (ss_manager == nullptr) {
         LOG_E("Failed to open secure storage session.", 0);
         *error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
-        return {};
+    } else {
+        *error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
     }
-    *error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
 #if KEYMASTER_SOFT_ATTESTATION_FALLBACK
     if ((*error != KM_ERROR_OK) || (chain->entry_count == 0)) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);
-        const keymaster_cert_chain_t* soft_chain =
-                getAttestationChain(algorithm, error);
-        chain->entry_count = soft_chain->entry_count;
-        chain->entries = new keymaster_blob_t[chain->entry_count];
-        for (size_t i = 0; i < chain->entry_count; i++) {
-            chain->entries[i].data =
-                    new uint8_t[soft_chain->entries[i].data_length];
-            chain->entries[i].data_length = soft_chain->entries[i].data_length;
-            memcpy((uint8_t*)chain->entries[i].data,
-                   soft_chain->entries[i].data, chain->entries[i].data_length);
-        }
+        chain = getAttestationChain(algorithm, error);
     }
 #endif
-    if (*error != KM_ERROR_OK)
-        return nullptr;
     return chain;
 }
 
-keymaster_error_t TrustyKeymasterContext::GenerateAttestation(
+CertificateChain TrustyKeymasterContext::GenerateAttestation(
         const Key& key,
         const AuthorizationSet& attest_params,
-        CertChainPtr* cert_chain) const {
-    keymaster_error_t error = KM_ERROR_OK;
+        keymaster_error_t* error) const {
+    *error = KM_ERROR_OK;
     keymaster_algorithm_t key_algorithm;
     if (!key.authorizations().GetTagValue(TAG_ALGORITHM, &key_algorithm)) {
-        return KM_ERROR_UNKNOWN_ERROR;
+        *error = KM_ERROR_UNKNOWN_ERROR;
+        return {};
     }
 
-    if ((key_algorithm != KM_ALGORITHM_RSA && key_algorithm != KM_ALGORITHM_EC))
-        return KM_ERROR_INCOMPATIBLE_ALGORITHM;
+    if ((key_algorithm != KM_ALGORITHM_RSA &&
+         key_algorithm != KM_ALGORITHM_EC)) {
+        *error = KM_ERROR_INCOMPATIBLE_ALGORITHM;
+        return {};
+    }
 
     // We have established that the given key has the correct algorithm, and
-    // because this is the SoftKeymasterContext we can assume that the Key is an
-    // AsymmetricKey. So we can downcast.
+    // because this is the TrustyKeymasterContext we can assume that the Key is
+    // an AsymmetricKey. So we can downcast.
     const AsymmetricKey& asymmetric_key =
             static_cast<const AsymmetricKey&>(key);
 
-    auto attestation_chain = AttestationChain(key_algorithm, &error);
-    if (error != KM_ERROR_OK)
-        return error;
+    auto attestation_chain = AttestationChain(key_algorithm, error);
+    if (*error != KM_ERROR_OK) {
+        return {};
+    }
 
-    auto attestation_key = AttestationKey(key_algorithm, &error);
-    if (error != KM_ERROR_OK)
-        return error;
+    auto attestation_key = AttestationKey(key_algorithm, error);
+    if (*error != KM_ERROR_OK) {
+        return {};
+    }
 
     return generate_attestation(asymmetric_key, attest_params,
-                                *attestation_chain, attestation_key, *this,
-                                cert_chain);
+                                move(attestation_chain), attestation_key, *this,
+                                error);
 }
 
 keymaster_error_t TrustyKeymasterContext::SetBootParams(

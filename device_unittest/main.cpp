@@ -47,7 +47,7 @@
 #define TLOG_TAG "km_storage_test"
 
 using keymaster::AttestationKeySlot;
-using keymaster::CertificateChainDelete;
+using keymaster::CertificateChain;
 using keymaster::kAttestationUuidSize;
 using keymaster::KeymasterKeyBlob;
 using keymaster::kProductIdSize;
@@ -100,7 +100,7 @@ void TestCertChainStorage(SecureStorageManager* ss_manager,
     keymaster::UniquePtr<uint8_t[]> write_cert[CHAIN_LENGTH];
     unsigned int i = 0;
     uint32_t cert_chain_length;
-    keymaster::UniquePtr<keymaster_cert_chain_t, CertificateChainDelete> chain;
+    CertificateChain chain;
 
     for (i = 0; i < CHAIN_LENGTH; ++i) {
         write_cert[i].reset(NewRandBuf(DATA_SIZE));
@@ -119,14 +119,12 @@ void TestCertChainStorage(SecureStorageManager* ss_manager,
         }
     }
 
-    chain.reset(new keymaster_cert_chain_t);
-    ASSERT_NE(nullptr, chain.get());
-    error = ss_manager->ReadCertChainFromStorage(key_slot, chain.get());
+    error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
     ASSERT_EQ(KM_ERROR_OK, error);
-    ASSERT_EQ(CHAIN_LENGTH, chain.get()->entry_count);
+    ASSERT_EQ(CHAIN_LENGTH, chain.entry_count);
     for (i = 0; i < CHAIN_LENGTH; ++i) {
-        ASSERT_EQ(DATA_SIZE, chain.get()->entries[i].data_length);
-        ASSERT_EQ(0, memcmp(write_cert[i].get(), chain.get()->entries[i].data,
+        ASSERT_EQ(DATA_SIZE, chain.entries[i].data_length);
+        ASSERT_EQ(0, memcmp(write_cert[i].get(), chain.entries[i].data,
                             DATA_SIZE));
     }
 
