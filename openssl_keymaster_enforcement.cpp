@@ -201,7 +201,7 @@ VerifyAuthorizationResponse OpenSSLKeymasterEnforcement::VerifyAuthorization(
     // production use as well.  Additional verification need only be provided by
     // an implementation if it is interoperating with another implementation
     // that requires more.
-    VerifyAuthorizationResponse response;
+    VerifyAuthorizationResponse response(request.message_version);
     response.token.challenge = request.challenge;
     response.token.timestamp = get_current_time_ms();
     response.token.security_level = SecurityLevel();
