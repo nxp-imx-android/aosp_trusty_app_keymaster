@@ -36,10 +36,18 @@
 
 using namespace keymaster;
 
-uuid_t gatekeeper_uuid = {0x38ba0cdc,
-                          0xdf0e,
-                          0x11e4,
-                          {0x98, 0x69, 0x23, 0x3f, 0xb6, 0xae, 0x47, 0x95}};
+static uuid_t accessible_uuids[] = {
+                                       /* gatekeeper uuid */
+                                       {0x38ba0cdc,
+                                        0xdf0e,
+                                        0x11e4,
+                                        {0x98, 0x69, 0x23, 0x3f, 0xb6, 0xae, 0x47, 0x95}},
+                                       /* confirmation ui uuid */
+                                       {0x7dee2364,
+                                        0xc036,
+                                        0x425b,
+                                        {0xb0, 0x86, 0xdf, 0x0f, 0x6c, 0x23, 0x3c, 0x1b}},
+                                   };
 
 typedef void (*event_handler_proc_t)(const uevent_t* ev, void* ctx);
 struct tipc_event_handler {
@@ -587,9 +595,18 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
     }
 }
 
+static bool keymaster_check_uuid_accessible(uuid_t* uuid) {
+    for (auto accessible_uuid: accessible_uuids) {
+        if (memcmp(uuid, &accessible_uuid, sizeof(accessible_uuid)) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool keymaster_port_accessible(uuid_t* uuid, bool secure) {
     return !secure ||
-           memcmp(uuid, &gatekeeper_uuid, sizeof(gatekeeper_uuid)) == 0;
+           keymaster_check_uuid_accessible(uuid);
 }
 
 static keymaster_chan_ctx* keymaster_ctx_open(handle_t chan,
