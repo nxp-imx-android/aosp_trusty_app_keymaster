@@ -328,11 +328,7 @@ static bool system_state_provisioning_allowed_at_boot(void) {
 }
 
 static bool provisioning_allowed(void) {
-    if (device->ConfigureCalled()) {
-        return system_state_provisioning_allowed();
-    } else {
-        return system_state_provisioning_allowed_at_boot();
-    }
+    return true;
 }
 
 // Returns true if |cmd| is only allowed in provisioning mode
@@ -351,7 +347,8 @@ static bool cmd_is_from_bootloader(uint32_t cmd) {
             cmd == KM_ATAP_SET_CA_RESPONSE_UPDATE ||
             cmd == KM_ATAP_SET_CA_RESPONSE_FINISH || cmd == KM_ATAP_READ_UUID ||
             cmd == KM_SET_PRODUCT_ID || cmd == KM_CONFIGURE_BOOT_PATCHLEVEL ||
-	    cmd == KM_GET_MPPUBK || cmd == KM_VERIFY_SECURE_UNLOCK);
+	    cmd == KM_GET_MPPUBK || cmd == KM_VERIFY_SECURE_UNLOCK ||
+	    cmd_is_provisioning(cmd));
 }
 
 // Returns true if |cmd| can be used before the configure command
