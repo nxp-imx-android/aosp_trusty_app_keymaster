@@ -25,7 +25,8 @@ namespace keymaster {
  * Generic struct for Keymaster requests which hold a single raw buffer.
  */
 struct RawBufferRequest : public KeymasterMessage {
-    explicit RawBufferRequest(int32_t ver) : KeymasterMessage(ver) {}
+    explicit RawBufferRequest(int32_t ver = kDefaultMessageVersion)
+            : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return data.SerializedSize(); }
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
@@ -42,7 +43,8 @@ struct RawBufferRequest : public KeymasterMessage {
  * Generic struct for Keymaster responses which hold a single raw buffer.
  */
 struct RawBufferResponse : public KeymasterResponse {
-    explicit RawBufferResponse(int32_t ver) : KeymasterResponse(ver) {}
+    explicit RawBufferResponse(int32_t ver = kDefaultMessageVersion)
+            : KeymasterResponse(ver) {}
 
     size_t NonErrorSerializedSize() const override {
         return data.SerializedSize();
@@ -59,8 +61,41 @@ struct RawBufferResponse : public KeymasterResponse {
     Buffer data;
 };
 
+/**
+ * Generic struct for Keymaster responses which have no specialized response
+ * data.
+ */
+struct NoResponse : public KeymasterResponse {
+    explicit NoResponse(int32_t ver = kDefaultMessageVersion)
+            : KeymasterResponse(ver) {}
+
+    size_t NonErrorSerializedSize() const override { return 0; }
+    uint8_t* NonErrorSerialize(uint8_t* buf,
+                               const uint8_t* end) const override {
+        return buf;
+    }
+    bool NonErrorDeserialize(const uint8_t** buf_ptr,
+                             const uint8_t* end) override {
+        return true;
+    }
+};
+
+struct NoRequest : public KeymasterMessage {
+    explicit NoRequest(int32_t ver = kDefaultMessageVersion)
+            : KeymasterMessage(ver) {}
+
+    size_t SerializedSize() const override { return 0; }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        return buf;
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return true;
+    }
+};
+
 struct SetBootParamsRequest : public KeymasterMessage {
-    explicit SetBootParamsRequest(int32_t ver) : KeymasterMessage(ver) {}
+    explicit SetBootParamsRequest(int32_t ver = kDefaultMessageVersion)
+            : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override {
         return (sizeof(os_version) + sizeof(os_patchlevel) +
@@ -93,9 +128,11 @@ struct SetBootParamsRequest : public KeymasterMessage {
     Buffer verified_boot_hash;
 };
 
-using SetBootParamsResponse = EmptyKeymasterResponse;
+struct SetBootParamsResponse : public NoResponse {};
+
 struct SetAttestationKeyRequest : public KeymasterMessage {
-    explicit SetAttestationKeyRequest(int32_t ver) : KeymasterMessage(ver) {}
+    explicit SetAttestationKeyRequest(int32_t ver = kDefaultMessageVersion)
+            : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override {
         return sizeof(uint32_t) + key_data.SerializedSize();
@@ -113,10 +150,11 @@ struct SetAttestationKeyRequest : public KeymasterMessage {
     Buffer key_data;
 };
 
-using SetAttestationKeyResponse = EmptyKeymasterResponse;
+struct SetAttestationKeyResponse : public NoResponse {};
 
 struct ClearAttestationCertChainRequest : public KeymasterMessage {
-    explicit ClearAttestationCertChainRequest(int32_t ver)
+    explicit ClearAttestationCertChainRequest(
+            int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return sizeof(uint32_t); }
@@ -129,10 +167,12 @@ struct ClearAttestationCertChainRequest : public KeymasterMessage {
 
     keymaster_algorithm_t algorithm;
 };
-using ClearAttestationCertChainResponse = EmptyKeymasterResponse;
+
+struct ClearAttestationCertChainResponse : public NoResponse {};
 
 struct AppendAttestationCertChainRequest : public KeymasterMessage {
-    explicit AppendAttestationCertChainRequest(int32_t ver)
+    explicit AppendAttestationCertChainRequest(
+            int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override {
@@ -150,7 +190,8 @@ struct AppendAttestationCertChainRequest : public KeymasterMessage {
     keymaster_algorithm_t algorithm;
     Buffer cert_data;
 };
-using AppendAttestationCertChainResponse = EmptyKeymasterResponse;
+
+struct AppendAttestationCertChainResponse : public NoResponse {};
 
 /**
  * For Android Things Attestation Provisioning (ATAP), the GetCaRequest message
@@ -158,11 +199,11 @@ using AppendAttestationCertChainResponse = EmptyKeymasterResponse;
  * Since the SetCaResponse message will be very large (> 10k), SetCaResponse is
  * split into *Begin, *Update, and *Finish operations.
  */
-using AtapGetCaRequestRequest = RawBufferRequest;
-using AtapGetCaRequestResponse = RawBufferResponse;
+struct AtapGetCaRequestRequest : public RawBufferRequest {};
+struct AtapGetCaRequestResponse : public RawBufferResponse {};
 
 struct AtapSetCaResponseBeginRequest : public KeymasterMessage {
-    explicit AtapSetCaResponseBeginRequest(int32_t ver)
+    explicit AtapSetCaResponseBeginRequest(int32_t ver = kDefaultMessageVersion)
             : KeymasterMessage(ver) {}
 
     size_t SerializedSize() const override { return sizeof(uint32_t); }
@@ -175,19 +216,18 @@ struct AtapSetCaResponseBeginRequest : public KeymasterMessage {
 
     uint32_t ca_response_size;
 };
-using AtapSetCaResponseBeginResponse = EmptyKeymasterResponse;
+struct AtapSetCaResponseBeginResponse : public NoResponse {};
 
-using AtapSetCaResponseUpdateRequest = RawBufferRequest;
-using AtapSetCaResponseUpdateResponse = EmptyKeymasterResponse;
+struct AtapSetCaResponseUpdateRequest : public RawBufferRequest {};
+struct AtapSetCaResponseUpdateResponse : public NoResponse {};
 
-using AtapSetCaResponseFinishRequest = EmptyKeymasterRequest;
-using AtapSetCaResponseFinishResponse = EmptyKeymasterResponse;
+struct AtapSetCaResponseFinishRequest : public NoRequest {};
+struct AtapSetCaResponseFinishResponse : public NoResponse {};
+struct AtapSetProductIdRequest : public RawBufferRequest {};
+struct AtapSetProductIdResponse : public NoResponse {};
 
-using AtapSetProductIdRequest = RawBufferRequest;
-using AtapSetProductIdResponse = EmptyKeymasterResponse;
-
-using AtapReadUuidRequest = EmptyKeymasterRequest;
-using AtapReadUuidResponse = RawBufferResponse;
+struct AtapReadUuidRequest : public NoRequest {};
+struct AtapReadUuidResponse : public RawBufferResponse {};
 
 }  // namespace keymaster
 

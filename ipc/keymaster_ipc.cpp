@@ -224,13 +224,13 @@ static long do_dispatch(void (Keymaster::*operation)(const Request&, Response*),
                         keymaster::UniquePtr<uint8_t[]>* out,
                         uint32_t* out_size) {
     long err;
-    Request req(device->message_version());
+    Request req;
 
     err = deserialize_request(msg, payload_size, req);
     if (err != NO_ERROR)
         return err;
 
-    Response rsp(device->message_version());
+    Response rsp;
     (device->*operation)(req, &rsp);
 
     if (msg->cmd == KM_CONFIGURE) {
@@ -258,7 +258,7 @@ static long do_dispatch(Response (Keymaster::*operation)(const Request&),
                         keymaster::UniquePtr<uint8_t[]>* out,
                         uint32_t* out_size) {
     long err;
-    Request req(device->message_version());
+    Request req;
 
     err = deserialize_request(msg, payload_size, req);
     if (err != NO_ERROR)
@@ -382,8 +382,8 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
                                           uint32_t payload_size,
                                           keymaster::UniquePtr<uint8_t[]>* out,
                                           uint32_t* out_size) {
-    if (msg->cmd == KM_GET_VERSION || msg->cmd == KM_GET_VERSION_2) {
-        // KM_GET_VERSION and KM_GET_VERSION_2 command are always allowed
+    if (msg->cmd == KM_GET_VERSION) {
+        // KM_GET_VERSION command is always allowed
     } else if (!device->ConfigureCalled()) {
         if (!cmd_allowed_before_configure(msg->cmd)) {
             LOG_E("Command %d not allowed before configure command\n",
