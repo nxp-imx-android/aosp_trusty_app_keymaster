@@ -95,11 +95,14 @@ TrustyKeymasterContext::TrustyKeymasterContext()
           rng_initialized_(false),
           calls_since_reseed_(0) {
     LOG_D("Creating TrustyKeymaster", 0);
-    rsa_factory_.reset(new RsaKeyFactory(this));
-    tdes_factory_.reset(new TripleDesKeyFactory(this, this));
-    ec_factory_.reset(new EcKeyFactory(this));
-    aes_factory_.reset(new AesKeyFactory(this, this));
-    hmac_factory_.reset(new HmacKeyFactory(this, this));
+    rsa_factory_.reset(new RsaKeyFactory(*this /* blob_maker */));
+    tdes_factory_.reset(new TripleDesKeyFactory(*this /* blob_maker */,
+                                                *this /* random_source */));
+    ec_factory_.reset(new EcKeyFactory(*this /* blob_maker */));
+    aes_factory_.reset(new AesKeyFactory(*this /* blob_maker */,
+                                         *this /* random_source */));
+    hmac_factory_.reset(new HmacKeyFactory(*this /* blob_maker */,
+                                           *this /* random_source */));
     verified_boot_key_.Reinitialize("Unbound", 7);
 }
 
