@@ -90,7 +90,7 @@ bool UpgradeIntegerTag(keymaster_tag_t tag,
 }  // anonymous namespace
 
 TrustyKeymasterContext::TrustyKeymasterContext()
-        : AttestationRecordContext(KmVersion::KEYMASTER_4),
+        : AttestationContext(KmVersion::KEYMASTER_4),
           enforcement_policy_(this),
           rng_initialized_(false),
           calls_since_reseed_(0) {
@@ -104,6 +104,8 @@ TrustyKeymasterContext::TrustyKeymasterContext()
     hmac_factory_.reset(new HmacKeyFactory(*this /* blob_maker */,
                                            *this /* random_source */));
     verified_boot_key_.Reinitialize("Unbound", 7);
+    verified_boot_params_.verified_boot_key = {
+            verified_boot_key_.begin(), verified_boot_key_.buffer_size()};
 }
 
 const KeyFactory* TrustyKeymasterContext::GetKeyFactory(
@@ -268,17 +270,21 @@ keymaster_error_t TrustyKeymasterContext::BuildHiddenAuthorizations(
     // hidden authorization set for binding to key.
     keymaster_key_param_t root_of_trust;
     root_of_trust.tag = KM_TAG_ROOT_OF_TRUST;
-    root_of_trust.blob.data = verified_boot_key_.begin();
-    root_of_trust.blob.data_length = verified_boot_key_.buffer_size();
+    root_of_trust.blob.data = verified_boot_params_.verified_boot_key.data;
+    root_of_trust.blob.data_length =
+            verified_boot_params_.verified_boot_key.data_length;
     hidden->push_back(root_of_trust);
 
-    root_of_trust.blob.data =
-            reinterpret_cast<const uint8_t*>(&verified_boot_state_);
-    root_of_trust.blob.data_length = sizeof(verified_boot_state_);
+    root_of_trust.blob.data = reinterpret_cast<const uint8_t*>(
+            &verified_boot_params_.verified_boot_state);
+    root_of_trust.blob.data_length =
+            sizeof(verified_boot_params_.verified_boot_state);
     hidden->push_back(root_of_trust);
 
-    root_of_trust.blob.data = reinterpret_cast<const uint8_t*>(&device_locked_);
-    root_of_trust.blob.data_length = sizeof(device_locked_);
+    root_of_trust.blob.data = reinterpret_cast<const uint8_t*>(
+            &verified_boot_params_.device_locked);
+    root_of_trust.blob.data_length =
+            sizeof(verified_boot_params_.device_locked);
     hidden->push_back(root_of_trust);
 
     return TranslateAuthorizationSetError(hidden->is_valid());
@@ -571,22 +577,15 @@ void TrustyKeymasterContext::GetSystemVersion(uint32_t* os_version,
     *os_patchlevel = boot_os_patchlevel_;
 }
 
-keymaster_error_t TrustyKeymasterContext::GetVerifiedBootParams(
-        keymaster_blob_t* verified_boot_key,
-        keymaster_blob_t* verified_boot_hash,
-        keymaster_verified_boot_t* verified_boot_state,
-        bool* device_locked) const {
-    verified_boot_key->data = verified_boot_key_.begin();
-    verified_boot_key->data_length = verified_boot_key_.buffer_size();
-    verified_boot_hash->data = verified_boot_hash_.begin();
-    verified_boot_hash->data_length = verified_boot_hash_.buffer_size();
-    *verified_boot_state = verified_boot_state_;
-    *device_locked = device_locked_;
-    return KM_ERROR_OK;
+const AttestationContext::VerifiedBootParams*
+TrustyKeymasterContext::GetVerifiedBootParams(keymaster_error_t* error) const {
+    *error = KM_ERROR_OK;
+    return &verified_boot_params_;
 }
 
-KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
-                                keymaster_error_t* error) {
+KeymasterKeyBlob TrustyKeymasterContext::GetAttestationKey(
+        keymaster_algorithm_t algorithm,
+        keymaster_error_t* error) const {
     AttestationKeySlot key_slot;
 
     switch (algorithm) {
@@ -627,8 +626,9 @@ KeymasterKeyBlob AttestationKey(keymaster_algorithm_t algorithm,
     return result;
 }
 
-CertificateChain AttestationChain(keymaster_algorithm_t algorithm,
-                                  keymaster_error_t* error) {
+CertificateChain TrustyKeymasterContext::GetAttestationChain(
+        keymaster_algorithm_t algorithm,
+        keymaster_error_t* error) const {
     AttestationKeySlot key_slot;
     switch (algorithm) {
     case KM_ALGORITHM_RSA:
@@ -683,12 +683,12 @@ CertificateChain TrustyKeymasterContext::GenerateAttestation(
     const AsymmetricKey& asymmetric_key =
             static_cast<const AsymmetricKey&>(key);
 
-    auto attestation_chain = AttestationChain(key_algorithm, error);
+    auto attestation_chain = GetAttestationChain(key_algorithm, error);
     if (*error != KM_ERROR_OK) {
         return {};
     }
 
-    auto attestation_key = AttestationKey(key_algorithm, error);
+    auto attestation_key = GetAttestationKey(key_algorithm, error);
     if (*error != KM_ERROR_OK) {
         return {};
     }
@@ -709,9 +709,13 @@ keymaster_error_t TrustyKeymasterContext::SetBootParams(
         return KM_ERROR_ROOT_OF_TRUST_ALREADY_SET;
 
     verified_boot_hash_.Reinitialize(verified_boot_hash);
+    verified_boot_params_.verified_boot_hash = {
+            verified_boot_hash_.begin(),  //
+            verified_boot_hash_.buffer_size()};
+
     root_of_trust_set_ = true;
-    verified_boot_state_ = verified_boot_state;
-    device_locked_ = device_locked;
+    verified_boot_params_.verified_boot_state = verified_boot_state;
+    verified_boot_params_.device_locked = device_locked;
     verified_boot_key_.Reinitialize("", 0);
 
     // If the device is verified or self signed, load the key (if present)
@@ -719,14 +723,18 @@ keymaster_error_t TrustyKeymasterContext::SetBootParams(
         (verified_boot_state == KM_VERIFIED_BOOT_SELF_SIGNED)) {
         if (verified_boot_key.buffer_size()) {
             verified_boot_key_.Reinitialize(verified_boot_key);
+            verified_boot_params_.verified_boot_key = {
+                    verified_boot_key_.begin(),
+                    verified_boot_key_.buffer_size()};
         } else {
             // If no boot key was passed, default to unverified/unlocked
-            verified_boot_state_ = KM_VERIFIED_BOOT_UNVERIFIED;
-            device_locked_ = false;
+            verified_boot_params_.verified_boot_state =
+                    KM_VERIFIED_BOOT_UNVERIFIED;
+            verified_boot_params_.device_locked = false;
         }
     } else {
         // If the device image was not signed, it cannot be locked
-        device_locked_ = false;
+        verified_boot_params_.device_locked = false;
     }
 
     return KM_ERROR_OK;

@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 #include <keymaster/UniquePtr.h>
+#include <keymaster/attestation_context.h>
 #include <keymaster/attestation_record.h>
 #include <keymaster/keymaster_context.h>
 #include <keymaster/soft_key_factory.h>
@@ -35,14 +36,14 @@ class KeyFactory;
 static const int kAuthTokenKeySize = 32;
 
 class TrustyKeymasterContext : public KeymasterContext,
-                               AttestationRecordContext,
+                               AttestationContext,
                                SoftwareKeyBlobMaker,
                                SoftwareRandomSource {
 public:
     TrustyKeymasterContext();
 
     KmVersion GetKmVersion() const override {
-        return AttestationRecordContext::GetKmVersion();
+        return AttestationContext::GetKmVersion();
     }
 
     keymaster_security_level_t GetSecurityLevel() const override {
@@ -62,11 +63,8 @@ public:
     const keymaster_algorithm_t* GetSupportedAlgorithms(
             size_t* algorithms_count) const override;
 
-    keymaster_error_t GetVerifiedBootParams(
-            keymaster_blob_t* verified_boot_key,
-            keymaster_blob_t* verified_boot_hash,
-            keymaster_verified_boot_t* verified_boot_state,
-            bool* device_locked) const override;
+    const VerifiedBootParams* GetVerifiedBootParams(
+            keymaster_error_t* error) const override;
 
     keymaster_error_t CreateKeyBlob(
             const AuthorizationSet& key_description,
@@ -94,17 +92,17 @@ public:
         return &enforcement_policy_;
     }
 
+    KeymasterKeyBlob GetAttestationKey(keymaster_algorithm_t algorithm,
+                                       keymaster_error_t* error) const override;
+
+    CertificateChain GetAttestationChain(
+            keymaster_algorithm_t algorithm,
+            keymaster_error_t* error) const override;
+
     CertificateChain GenerateAttestation(
             const Key& key,
             const AuthorizationSet& attest_params,
             keymaster_error_t* error) const override;
-
-    keymaster_error_t GenerateUniqueId(uint64_t creation_date_time,
-                                       const keymaster_blob_t& application_id,
-                                       bool reset_since_rotation,
-                                       Buffer* unique_id) const override {
-        return KM_ERROR_UNIMPLEMENTED;
-    }
 
     keymaster_error_t SetBootParams(
             uint32_t /* os_version */,
@@ -168,10 +166,12 @@ private:
     uint32_t boot_os_version_ = 0;
     uint32_t boot_os_patchlevel_ = 0;
     Buffer verified_boot_key_;
-    keymaster_verified_boot_t verified_boot_state_ =
-            KM_VERIFIED_BOOT_UNVERIFIED;
-    bool device_locked_ = false;
     Buffer verified_boot_hash_;
+    VerifiedBootParams verified_boot_params_ = {
+            .verified_boot_key = {},
+            .verified_boot_hash = {},
+            .verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED,
+            .device_locked = false};
 };
 
 }  // namespace keymaster
