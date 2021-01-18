@@ -104,6 +104,12 @@ public:
             const AuthorizationSet& attest_params,
             keymaster_error_t* error) const override;
 
+    CertificateChain GenerateSelfSignedCertificate(
+            const Key& key,
+            const AuthorizationSet& cert_params,
+            bool fake_signature,
+            keymaster_error_t* error) const override;
+
     keymaster_error_t SetBootParams(
             uint32_t /* os_version */,
             uint32_t /* os_patchlevel */,
