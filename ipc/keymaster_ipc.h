@@ -19,6 +19,8 @@
 #define KEYMASTER_PORT "com.android.trusty.keymaster"
 #define KEYMASTER_MAX_BUFFER_LENGTH 4096
 
+#include <uapi/trusty_uuid.h>
+
 // Commands
 enum keymaster_command {
     KEYMASTER_RESP_BIT = 1,
@@ -65,6 +67,13 @@ enum keymaster_command {
     KM_SET_PRODUCT_ID = (0x9000 << KEYMASTER_REQ_SHIFT),
     KM_CLEAR_ATTESTATION_CERT_CHAIN = (0xa000 << KEYMASTER_REQ_SHIFT),
 };
+
+/**
+ * check uuid against the target-specific acesss policy
+ *
+ * @uuid: the uuid of the requesting client
+ */
+bool keymaster_check_target_access_policy(uuid_t* uuid);
 
 #ifdef __ANDROID__
 

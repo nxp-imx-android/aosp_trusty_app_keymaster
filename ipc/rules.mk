@@ -19,4 +19,10 @@ MODULE_SRCS += $(CUR_DIR)/keymaster_ipc.cpp
 
 MODULE_DEPS += trusty/user/base/interface/keymaster
 
+ifdef TRUSTY_KM_TARGET_ACCESS_POLICY
+    MODULE_DEPS+= $(TRUSTY_KM_TARGET_ACCESS_POLICY)
+else
+    MODULE_SRCS+= $(CUR_DIR)/keymaster_generic_access_policy.cpp
+endif
+
 CUR_DIR =
