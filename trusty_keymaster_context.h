@@ -172,6 +172,9 @@ private:
     uint32_t boot_os_version_ = 0;
     uint32_t boot_os_patchlevel_ = 0;
     Buffer verified_boot_key_;
+    keymaster_verified_boot_t verified_boot_state_ =
+            KM_VERIFIED_BOOT_UNVERIFIED;
+    bool device_locked_ = false;
     Buffer verified_boot_hash_;
     VerifiedBootParams verified_boot_params_ = {
             .verified_boot_key = {},
