@@ -121,6 +121,8 @@ keymaster_error_t TrustyAesKeyFactory::CreateHwStorageKeyBlob(
 
 keymaster_error_t TrustyAesKeyFactory::GenerateKey(
         const AuthorizationSet& key_description,
+        UniquePtr<Key> /* attestation_signing_key */,
+        const KeymasterBlob& /* issuer_subject */,
         KeymasterKeyBlob* output_key_blob,
         AuthorizationSet* hw_enforced,
         AuthorizationSet* sw_enforced,
@@ -137,7 +139,9 @@ keymaster_error_t TrustyAesKeyFactory::GenerateKey(
 #endif
     }
 
-    return AesKeyFactory::GenerateKey(key_description, output_key_blob,
+    return AesKeyFactory::GenerateKey(key_description,
+                                      {} /* attestation_signing_key */,
+                                      {} /* issuer_subject */, output_key_blob,
                                       hw_enforced, sw_enforced, cert_chain);
 }
 
@@ -145,6 +149,8 @@ keymaster_error_t TrustyAesKeyFactory::ImportKey(
         const AuthorizationSet& key_description,
         keymaster_key_format_t input_key_material_format,
         const KeymasterKeyBlob& input_key_material,
+        UniquePtr<Key> /* attestation_signing_key */,
+        const KeymasterBlob& /* issuer_subject */,
         KeymasterKeyBlob* output_key_blob,
         AuthorizationSet* hw_enforced,
         AuthorizationSet* sw_enforced,
@@ -164,9 +170,10 @@ keymaster_error_t TrustyAesKeyFactory::ImportKey(
 #endif
     }
 
-    return AesKeyFactory::ImportKey(key_description, input_key_material_format,
-                                    input_key_material, output_key_blob,
-                                    hw_enforced, sw_enforced, cert_chain);
+    return AesKeyFactory::ImportKey(
+            key_description, input_key_material_format, input_key_material,
+            {} /* attestation_signing_key */, {} /* issuer_subject */,
+            output_key_blob, hw_enforced, sw_enforced, cert_chain);
 }
 
 keymaster_error_t TrustyAesKeyFactory::LoadKey(

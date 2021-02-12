@@ -21,7 +21,7 @@
 
 #include <keymaster/UniquePtr.h>
 #include <keymaster/attestation_context.h>
-#include <keymaster/attestation_record.h>
+//#include <keymaster/attestation_record.h>
 #include <keymaster/keymaster_context.h>
 #include <keymaster/soft_key_factory.h>
 
@@ -102,6 +102,8 @@ public:
     CertificateChain GenerateAttestation(
             const Key& key,
             const AuthorizationSet& attest_params,
+            UniquePtr<Key> attest_key,
+            const KeymasterBlob& issuer_subject,
             keymaster_error_t* error) const override;
 
     CertificateChain GenerateSelfSignedCertificate(

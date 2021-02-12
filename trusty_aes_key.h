@@ -31,6 +31,8 @@ public:
     ~TrustyAesKeyFactory() { reset_hwwsk_chan(); }
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
+                                  UniquePtr<Key> attestation_signing_key,
+                                  const KeymasterBlob& issuer_subject,
                                   KeymasterKeyBlob* key_blob,
                                   AuthorizationSet* hw_enforced,
                                   AuthorizationSet* sw_enforced,
@@ -40,6 +42,8 @@ public:
             const AuthorizationSet& key_description,
             keymaster_key_format_t input_key_material_format,
             const KeymasterKeyBlob& input_key_material,
+            UniquePtr<Key> attestation_signing_key,
+            const KeymasterBlob& issuer_subject,
             KeymasterKeyBlob* output_key_blob,
             AuthorizationSet* hw_enforced,
             AuthorizationSet* sw_enforced,

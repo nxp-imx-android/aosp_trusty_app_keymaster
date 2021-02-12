@@ -676,6 +676,8 @@ CertificateChain TrustyKeymasterContext::GetAttestationChain(
 CertificateChain TrustyKeymasterContext::GenerateAttestation(
         const Key& key,
         const AuthorizationSet& attest_params,
+        UniquePtr<Key> attest_key,
+        const KeymasterBlob& issuer_subject,
         keymaster_error_t* error) const {
     *error = KM_ERROR_OK;
     keymaster_algorithm_t key_algorithm;
@@ -696,19 +698,13 @@ CertificateChain TrustyKeymasterContext::GenerateAttestation(
     const AsymmetricKey& asymmetric_key =
             static_cast<const AsymmetricKey&>(key);
 
-    auto attestation_chain = GetAttestationChain(key_algorithm, error);
-    if (*error != KM_ERROR_OK) {
-        return {};
-    }
-
-    auto attestation_key = GetAttestationKey(key_algorithm, error);
+    AttestKeyInfo attest_key_info(attest_key, &issuer_subject, error);
     if (*error != KM_ERROR_OK) {
         return {};
     }
 
     return generate_attestation(asymmetric_key, attest_params,
-                                move(attestation_chain), attestation_key, *this,
-                                error);
+                                move(attest_key_info), *this, error);
 }
 
 CertificateChain TrustyKeymasterContext::GenerateSelfSignedCertificate(
