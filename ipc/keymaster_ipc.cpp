@@ -353,7 +353,8 @@ static bool provisioning_allowed(void) {
 static bool cmd_is_provisioning(uint32_t cmd) {
     return (cmd == KM_SET_ATTESTATION_KEY ||
             cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
-            cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN);
+            cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN ||
+	    cmd == KM_APPEND_ATTESTATION_ID);
 }
 
 // Returns true if |cmd| is called from the bootloader
@@ -364,7 +365,7 @@ static bool cmd_is_from_bootloader(uint32_t cmd) {
             cmd == KM_ATAP_SET_CA_RESPONSE_UPDATE ||
             cmd == KM_ATAP_SET_CA_RESPONSE_FINISH || cmd == KM_ATAP_READ_UUID ||
             cmd == KM_SET_PRODUCT_ID || cmd == KM_GET_MPPUBK ||
-            cmd == KM_VERIFY_SECURE_UNLOCK || cmd == KM_APPEND_ATTESTATION_ID);
+            cmd == KM_VERIFY_SECURE_UNLOCK);
 }
 
 // Returns true if |cmd| can be used before the configure command
