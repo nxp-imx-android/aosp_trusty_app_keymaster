@@ -354,7 +354,8 @@ static bool cmd_is_provisioning(uint32_t cmd) {
     return (cmd == KM_SET_ATTESTATION_KEY ||
             cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
             cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN ||
-	    cmd == KM_APPEND_ATTESTATION_ID);
+	    cmd == KM_APPEND_ATTESTATION_ID ||
+	    cmd == KM_DESTROY_ATTESTATION_IDS);
 }
 
 // Returns true if |cmd| is called from the bootloader
