@@ -133,6 +133,7 @@ MODULE_DEPS += \
 	trusty/user/base/lib/rng \
 	trusty/user/base/lib/hwkey \
 	trusty/user/base/lib/hwwsk \
+	trusty/user/base/lib/keybox/client \
 	trusty/user/base/lib/storage \
 	trusty/user/base/lib/system_state \
 	external/boringssl \

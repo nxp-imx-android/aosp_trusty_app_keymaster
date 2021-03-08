@@ -17,7 +17,10 @@
 #include "trusty_keymaster.h"
 #include "secure_storage_manager.h"
 
+#include <lib/keybox/client/keybox.h>
 #include <uapi/err.h>
+
+#include <memory>
 
 #ifndef DISABLE_ATAP_SUPPORT
 #include <libatap/libatap.h>
@@ -88,8 +91,42 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
 void TrustyKeymaster::SetWrappedAttestationKey(
         const SetAttestationKeyRequest& request,
         SetAttestationKeyResponse* response) {
-    // TODO: Unwrap and set
-    response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+    if (response == nullptr) {
+        return;
+    }
+    AttestationKeySlot key_slot =
+            keymaster_algorithm_to_key_slot(request.algorithm);
+    if (key_slot == AttestationKeySlot::kInvalid) {
+        response->error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+        return;
+    }
+    /*
+     * This assumes unwrapping decreases size.
+     * If it doesn't, the unwrap call will fail.
+     */
+    size_t unwrapped_buf_size = request.key_data.buffer_size();
+    size_t unwrapped_key_size;
+    std::unique_ptr<uint8_t[]> unwrapped_key(new uint8_t[unwrapped_buf_size]);
+    if (!unwrapped_key) {
+        response->error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
+        return;
+    }
+    int rc = keybox_unwrap(request.key_data.begin(),
+                           request.key_data.buffer_size(), unwrapped_key.get(),
+                           unwrapped_buf_size, &unwrapped_key_size);
+    if (rc != NO_ERROR) {
+        response->error = KM_ERROR_VERIFICATION_FAILED;
+        return;
+    }
+
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+
+    response->error = ss_manager->WriteKeyToStorage(
+            key_slot, unwrapped_key.get(), unwrapped_key_size);
 }
 
 void TrustyKeymaster::ClearAttestationCertChain(
