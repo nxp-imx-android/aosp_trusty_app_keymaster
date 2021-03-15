@@ -19,6 +19,7 @@
 
 #include <lib/hwkey/hwkey.h>
 #include <lib/rng/trusty_rng.h>
+#include <openssl/hmac.h>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/contexts/soft_attestation_cert.h>
@@ -1006,6 +1007,36 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
 
     LOG_D("UnwrapKey:Done", 0);
     return error;
+}
+
+keymaster_error_t TrustyKeymasterContext::CheckConfirmationToken(
+        const uint8_t* input_data,
+        size_t input_data_size,
+        const uint8_t confirmation_token[kConfirmationTokenSize]) const {
+    // Note: ConfirmationUI is using the same secret key as auth tokens, the
+    // difference is that messages are prefixed using the message tag
+    // "confirmation token".
+    keymaster_key_blob_t auth_token_key;
+    keymaster_error_t error = GetAuthTokenKey(&auth_token_key);
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    uint8_t computed_hash[EVP_MAX_MD_SIZE];
+    unsigned int computed_hash_length;
+    if (!HMAC(EVP_sha256(), auth_token_key.key_material,
+              auth_token_key.key_material_size, input_data, input_data_size,
+              computed_hash, &computed_hash_length)) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+
+    if (computed_hash_length != kConfirmationTokenSize ||
+        memcmp_s(computed_hash, confirmation_token, kConfirmationTokenSize) !=
+                0) {
+        return KM_ERROR_NO_USER_CONFIRMATION;
+    }
+
+    return KM_ERROR_OK;
 }
 
 }  // namespace keymaster

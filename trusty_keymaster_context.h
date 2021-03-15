@@ -129,6 +129,12 @@ public:
             keymaster_key_format_t* wrapped_key_format,
             KeymasterKeyBlob* wrapped_key_material) const override;
 
+    keymaster_error_t CheckConfirmationToken(
+            const uint8_t* input_data,
+            size_t input_data_size,
+            const uint8_t confirmation_token[kConfirmationTokenSize])
+            const override;
+
 private:
     bool SeedRngIfNeeded() const;
     bool ShouldReseedRng() const;
