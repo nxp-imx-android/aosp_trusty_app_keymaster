@@ -140,10 +140,18 @@ MODULE_DEPS += \
 	external/libcppbor \
 
 # If KEYMASTER_WITH_HWWSK_SUPPORT is set Keymaster will be
-#  compleled with Hardware Wrapped Storage key support
+#  compiled with Hardware Wrapped Storage key support
 ifeq (true,$(call TOBOOL,$(KEYMASTER_WITH_HWWSK_SUPPORT)))
 MODULE_DEFINES += \
      WITH_HWWSK_SUPPORT=1 \
+
+endif
+
+# If KEYMASTER_WITH_FINGERPRINT_SUPPORT is set Keymaster will be
+#  compiled with fingerprint authenticator support.
+ifeq (true,$(call TOBOOL,$(KEYMASTER_WITH_FINGERPRINT_SUPPORT)))
+MODULE_DEFINES += \
+     TEE_FINGERPRINT_AUTH_SUPPORTED=1 \
 
 endif
 

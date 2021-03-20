@@ -233,7 +233,7 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
 
 #if TEE_FINGERPRINT_AUTH_SUPPORTED
             // If HW_AUTH_FINGERPRINT is supported it needs to be included too
-            elem.enumerates |= entry.enumerated & HW_AUTH_FINGERPRINT;
+            elem.enumerated |= entry.enumerated & HW_AUTH_FINGERPRINT;
 #endif
             hw_enforced->push_back(elem);
         } break;
