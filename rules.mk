@@ -43,7 +43,6 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/android_keymaster/operation.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/operation_table.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/serializable.cpp \
-	$(KEYMASTER_ROOT)/android_keymaster/keymaster_stl.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/keymaster_tags.cpp \
 	$(KEYMASTER_ROOT)/key_blob_utils/auth_encrypted_key_blob.cpp \
 	$(KEYMASTER_ROOT)/key_blob_utils/ocb.c \

@@ -19,7 +19,6 @@
 #include <assert.h>
 
 #include <keymaster/logger.h>
-#include <keymaster/new.h>
 
 #include <lib/hwwsk/client.h>
 #include <lib/tipc/tipc.h>
