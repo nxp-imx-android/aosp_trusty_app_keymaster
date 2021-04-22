@@ -42,7 +42,11 @@ public:
     TrustyKeymasterContext();
 
     KmVersion GetKmVersion() const override {
-        return AttestationContext::GetKmVersion();
+        return AttestationContext::version_;
+    }
+
+    void SetKmVersion(KmVersion version) {
+        AttestationContext::version_ = version;
     }
 
     keymaster_security_level_t GetSecurityLevel() const override {

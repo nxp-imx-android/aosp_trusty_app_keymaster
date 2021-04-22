@@ -41,6 +41,10 @@ public:
         LOG_D("Creating TrustyKeymaster", 0);
     }
 
+    // Replace GetVersion2 handler from AndroidKeymaster.  It's not virtual, but
+    // that's okay because it's only called non-polymorphically.
+    GetVersion2Response GetVersion2(const GetVersion2Request& req);
+
     // The GetAuthTokenKey IPC call is accepted only from Gatekeeper.
     long GetAuthTokenKey(keymaster_key_blob_t* key);
 

@@ -36,7 +36,6 @@
 
 using namespace keymaster;
 
-
 typedef void (*event_handler_proc_t)(const uevent_t* ev, void* ctx);
 struct tipc_event_handler {
     event_handler_proc_t proc;
@@ -220,18 +219,19 @@ static long do_dispatch(void (Keymaster::*operation)(const Request&, Response*),
 
     Response rsp(device->message_version());
     (device->*operation)(req, &rsp);
+    LOG_D("do_dispatch #1 err: %d", rsp.error);
 
     if (msg->cmd == KM_CONFIGURE) {
         device->set_configure_error(rsp.error);
     }
 
     err = serialize_response(rsp, out, out_size);
+    LOG_D("do_dispatch #1: serialized response, %d bytes", *out_size);
     if (err != NO_ERROR) {
-        LOG_E("Error serializing response", 0);
-        return err;
+        LOG_E("Error serializing response: %d", err);
     }
 
-    return NO_ERROR;
+    return err;
 }
 
 /*
@@ -253,16 +253,19 @@ static long do_dispatch(Response (Keymaster::*operation)(const Request&),
         return err;
 
     Response rsp = ((device->*operation)(req));
+    LOG_D("do_dispatch #2 err: %d", rsp.error);
 
     if (msg->cmd == KM_CONFIGURE) {
         device->set_configure_error(rsp.error);
     }
 
     err = serialize_response(rsp, out, out_size);
-    if (err != NO_ERROR)
-        return err;
+    LOG_D("do_dispatch #2: serialized response, %d bytes", *out_size);
+    if (err != NO_ERROR) {
+        LOG_E("Error serializing response: %d", err);
+    }
 
-    return NO_ERROR;
+    return err;
 }
 
 /* Keymaster is migrating to new API signatures.
@@ -277,16 +280,19 @@ static long do_dispatch(Response (Keymaster::*operation)(),
                         uint32_t* out_size) {
     long err;
     Response rsp = ((device->*operation)());
+    LOG_D("do_dispatch #3 err: %d", rsp.error);
 
     if (msg->cmd == KM_CONFIGURE) {
         device->set_configure_error(rsp.error);
     }
 
     err = serialize_response(rsp, out, out_size);
-    if (err != NO_ERROR)
-        return err;
+    LOG_D("do_dispatch #3: serialized response, %d bytes", *out_size);
+    if (err != NO_ERROR) {
+        LOG_E("Error serializing response: %d", err);
+    }
 
-    return NO_ERROR;
+    return err;
 }
 
 static long get_auth_token_key(keymaster::UniquePtr<uint8_t[]>* key_buf,
@@ -372,7 +378,7 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
                                           keymaster::UniquePtr<uint8_t[]>* out,
                                           uint32_t* out_size) {
     if (msg->cmd == KM_GET_VERSION || msg->cmd == KM_GET_VERSION_2) {
-        // KM_GET_VERSION and KM_GET_VERSION_2 command are always allowed
+        // KM_GET_VERSION and KM_GET_VERSION_2 commands are always allowed
     } else if (!device->ConfigureCalled()) {
         if (!cmd_allowed_before_configure(msg->cmd)) {
             LOG_E("Command %d not allowed before configure command\n",
@@ -427,12 +433,12 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
                            out_size);
 
     case KM_GET_VERSION:
-        LOG_D("Dispatching GET_VERSION, size: %d", payload_size);
+        LOG_I("Dispatching GET_VERSION, size: %d", payload_size);
         return do_dispatch(&TrustyKeymaster::GetVersion, msg, payload_size, out,
                            out_size);
 
     case KM_GET_VERSION_2:
-        LOG_W("Dispatching GET_VERSION_2, size: %d", payload_size);
+        LOG_I("Dispatching GET_VERSION_2, size: %d", payload_size);
         return do_dispatch(&TrustyKeymaster::GetVersion2, msg, payload_size,
                            out, out_size);
 

@@ -31,6 +31,26 @@ const size_t kMaxCaResponseSize = 20000;
 
 namespace keymaster {
 
+GetVersion2Response TrustyKeymaster::GetVersion2(
+        const GetVersion2Request& req) {
+    switch (req.max_message_version) {
+    case 3:
+        context_->SetKmVersion(KmVersion::KEYMASTER_4);
+        break;
+
+    case 4:
+        context_->SetKmVersion(KmVersion::KEYMINT_1);
+        break;
+
+    default:
+        LOG_E("HAL sent invalid message version %d, crashing",
+              req.max_message_version);
+        abort();
+    }
+
+    return AndroidKeymaster::GetVersion2(req);
+}
+
 long TrustyKeymaster::GetAuthTokenKey(keymaster_key_blob_t* key) {
     keymaster_error_t error = context_->GetAuthTokenKey(key);
     if (error != KM_ERROR_OK)
