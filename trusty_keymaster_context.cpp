@@ -72,11 +72,8 @@ bool UpgradeIntegerTag(keymaster_tag_t tag,
                        bool* set_changed) {
     int index = set->find(tag);
     if (index == -1) {
-        keymaster_key_param_t param;
-        param.tag = tag;
-        param.integer = value;
-        set->push_back(param);
         *set_changed = true;
+        set->push_back(keymaster_key_param_t{.tag = tag, .integer = value});
         return true;
     }
 
@@ -85,8 +82,8 @@ bool UpgradeIntegerTag(keymaster_tag_t tag,
     }
 
     if (set->params[index].integer != value) {
-        set->params[index].integer = value;
         *set_changed = true;
+        set->params[index].integer = value;
     }
     return true;
 }
@@ -311,24 +308,16 @@ keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
     if (error != KM_ERROR_OK)
         return error;
 
-    Buffer nonce(OCB_NONCE_LENGTH);
-    Buffer tag(OCB_TAG_LENGTH);
-    if (!nonce.peek_write() || !tag.peek_write())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
-
-    error = GenerateRandom(nonce.peek_write(), OCB_NONCE_LENGTH);
-    if (error != KM_ERROR_OK)
+    EncryptedKey encrypted_key = EncryptKey(
+            key_material, AES_GCM_WITH_SW_ENFORCED, hw_enforced, sw_enforced,
+            hidden, master_key, *this /* random */, &error);
+    if (error != KM_ERROR_OK) {
         return error;
-    nonce.advance_write(OCB_NONCE_LENGTH);
+    }
 
-    KeymasterKeyBlob encrypted_key;
-    error = OcbEncryptKey(hw_enforced, sw_enforced, hidden, master_key,
-                          key_material, nonce, &encrypted_key, &tag);
-    if (error != KM_ERROR_OK)
-        return error;
-
-    return SerializeAuthEncryptedBlob(encrypted_key, hw_enforced, sw_enforced,
-                                      nonce, tag, blob);
+    *blob = SerializeAuthEncryptedBlob(encrypted_key, hw_enforced, sw_enforced,
+                                       &error);
+    return error;
 }
 
 keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
@@ -352,27 +341,23 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
         const AuthorizationSet& upgrade_params,
         KeymasterKeyBlob* upgraded_key) const {
     UniquePtr<Key> key;
-    keymaster_error_t error =
-            ParseKeyBlob(key_to_upgrade, upgrade_params, &key);
-    if (error != KM_ERROR_OK)
+    keymaster_error_t error = ParseKeyBlob(key_to_upgrade, upgrade_params, &key,
+                                           true /* allow_ocb */);
+    LOG_I("Upgrading key blob", 1);
+    if (error != KM_ERROR_OK) {
         return error;
+    }
 
     bool set_changed = false;
-
     if (boot_os_version_ == 0) {
         // We need to allow "upgrading" OS version to zero, to support upgrading
         // from proper numbered releases to unnumbered development and preview
         // releases.
 
-        int key_os_version_pos = key->sw_enforced().find(TAG_OS_VERSION);
-        if (key_os_version_pos != -1) {
-            uint32_t key_os_version =
-                    key->sw_enforced()[key_os_version_pos].integer;
-            if (key_os_version != 0) {
-                key->sw_enforced()[key_os_version_pos].integer =
-                        boot_os_version_;
-                set_changed = true;
-            }
+        if (int pos = key->sw_enforced().find(TAG_OS_VERSION);
+            pos != -1 && key->sw_enforced()[pos].integer != boot_os_version_) {
+            set_changed = true;
+            key->sw_enforced()[pos].integer = boot_os_version_;
         }
     }
 
@@ -385,7 +370,6 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
     }
 
     if (!set_changed) {
-        // Don't need an upgrade.
         return KM_ERROR_OK;
     }
 
@@ -397,52 +381,58 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
 keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
         const KeymasterKeyBlob& blob,
         const AuthorizationSet& additional_params,
-        UniquePtr<Key>* key) const {
-    AuthorizationSet hw_enforced;
-    AuthorizationSet sw_enforced;
-    KeymasterKeyBlob key_material;
+        UniquePtr<Key>* key,
+        bool allow_ocb) const {
     keymaster_error_t error;
 
-    auto constructKey = [&, this]() mutable -> keymaster_error_t {
-        // GetKeyFactory
-        if (error != KM_ERROR_OK)
-            return error;
-        keymaster_algorithm_t algorithm;
-        if (!hw_enforced.GetTagValue(TAG_ALGORITHM, &algorithm)) {
-            return KM_ERROR_INVALID_ARGUMENT;
-        }
-        auto factory = GetKeyFactory(algorithm);
-        return factory->LoadKey(move(key_material), additional_params,
-                                move(hw_enforced), move(sw_enforced), key);
-    };
-
-    Buffer nonce, tag;
-    KeymasterKeyBlob encrypted_key_material;
-    if (!key)
+    if (!key) {
         return KM_ERROR_UNEXPECTED_NULL_POINTER;
-    error = DeserializeAuthEncryptedBlob(blob, &encrypted_key_material,
-                                         &hw_enforced, &sw_enforced, &nonce,
-                                         &tag);
-    if (error != KM_ERROR_OK)
+    }
+    DeserializedKey deserialized_key =
+            DeserializeAuthEncryptedBlob(blob, &error);
+    if (error != KM_ERROR_OK) {
         return error;
+    }
 
-    if (nonce.available_read() != OCB_NONCE_LENGTH ||
-        tag.available_read() != OCB_TAG_LENGTH)
-        return KM_ERROR_INVALID_KEY_BLOB;
+    LOG_D("Deserialized blob with format: %d",
+          deserialized_key.encrypted_key.format);
+    if (deserialized_key.encrypted_key.format == AES_OCB && !allow_ocb) {
+        static size_t ocb_count = 0;
+        // b/185811713: This is a hack to work around the fact that keystore2
+        // doesn't currently handle upgrades of storage key blobs correctly.
+        LOG_D("Accepting AES-OCB blob #%d. Tsk, tsk.", ++ocb_count);
+        // return KM_ERROR_KEY_REQUIRES_UPGRADE;
+    }
 
     KeymasterKeyBlob master_key;
     error = DeriveMasterKey(&master_key);
-    if (error != KM_ERROR_OK)
+    if (error != KM_ERROR_OK) {
         return error;
+    }
 
     AuthorizationSet hidden;
     error = BuildHiddenAuthorizations(additional_params, &hidden);
-    if (error != KM_ERROR_OK)
+    if (error != KM_ERROR_OK) {
         return error;
+    }
 
-    error = OcbDecryptKey(hw_enforced, sw_enforced, hidden, master_key,
-                          encrypted_key_material, nonce, tag, &key_material);
-    return constructKey();
+    LOG_D("Decrypting blob with format: %d",
+          deserialized_key.encrypted_key.format);
+    KeymasterKeyBlob key_material =
+            DecryptKey(deserialized_key, hidden, master_key, &error);
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    keymaster_algorithm_t algorithm;
+    if (!deserialized_key.hw_enforced.GetTagValue(TAG_ALGORITHM, &algorithm)) {
+        return KM_ERROR_INVALID_KEY_BLOB;
+    }
+
+    auto factory = GetKeyFactory(algorithm);
+    return factory->LoadKey(move(key_material), additional_params,
+                            move(deserialized_key.hw_enforced),
+                            move(deserialized_key.sw_enforced), key);
 }
 
 keymaster_error_t TrustyKeymasterContext::AddRngEntropy(const uint8_t* buf,

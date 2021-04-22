@@ -21,7 +21,6 @@
 
 #include <keymaster/UniquePtr.h>
 #include <keymaster/attestation_context.h>
-//#include <keymaster/attestation_record.h>
 #include <keymaster/keymaster_context.h>
 #include <keymaster/soft_key_factory.h>
 
@@ -81,7 +80,10 @@ public:
 
     keymaster_error_t ParseKeyBlob(const KeymasterKeyBlob& blob,
                                    const AuthorizationSet& additional_params,
-                                   UniquePtr<Key>* key) const override;
+                                   UniquePtr<Key>* key) const override {
+        return ParseKeyBlob(blob, additional_params, key,
+                            false /* allow_ocb */);
+    }
 
     keymaster_error_t AddRngEntropy(const uint8_t* buf,
                                     size_t length) const override;
@@ -148,6 +150,18 @@ private:
             const AuthorizationSet& input_set,
             AuthorizationSet* hidden) const;
     keymaster_error_t DeriveMasterKey(KeymasterKeyBlob* master_key) const;
+
+    /*
+     * This ParseKeyBlob overload does the actual work of parsing key blobs,
+     * whether encrypted in AES-OCB mode or AES-GCM mode.  If allow_ocb is
+     * false, blobs encrypted in AES-OCB mode will be rejected with
+     * KM_ERROR_KEY_REQUIRES_UPGRADE, so the client will call UpgradeKey and get
+     * the blob re-encrypted with AES-GCM.
+     */
+    keymaster_error_t ParseKeyBlob(const KeymasterKeyBlob& blob,
+                                   const AuthorizationSet& additional_params,
+                                   UniquePtr<Key>* key,
+                                   bool allow_ocb) const;
     /*
      * CreateAuthEncryptedKeyBlob takes a key description authorization set, key
      * material, and hardware and software authorization sets and produces an
