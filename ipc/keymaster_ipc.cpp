@@ -431,6 +431,11 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         return do_dispatch(&TrustyKeymaster::GetVersion, msg, payload_size, out,
                            out_size);
 
+    case KM_GET_VERSION_2:
+        LOG_W("Dispatching GET_VERSION_2, size: %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::GetVersion2, msg, payload_size,
+                           out, out_size);
+
     case KM_ADD_RNG_ENTROPY:
         LOG_D("Dispatching ADD_RNG_ENTROPY, size: %d", payload_size);
         return do_dispatch(&TrustyKeymaster::AddRngEntropy, msg, payload_size,
