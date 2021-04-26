@@ -665,7 +665,7 @@ CertificateChain TrustyKeymasterContext::GetAttestationChain(
         *error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
     }
 #if KEYMASTER_SOFT_ATTESTATION_FALLBACK
-    if ((*error != KM_ERROR_OK) || (chain->entry_count == 0)) {
+    if ((*error != KM_ERROR_OK) || (chain.entry_count == 0)) {
         LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
               0);
         chain = getAttestationChain(algorithm, error);

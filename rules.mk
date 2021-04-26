@@ -96,8 +96,11 @@ MODULE_CPPFLAGS := -fno-short-enums
 
 MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__
 
-# Set to true to fallback to soft_attestation_cert if not provisioned
-KEYMASTER_SOFT_ATTESTATION_FALLBACK ?= false
+# Set to true to fallback to soft_attestation_cert if not provisioned.
+# Note that KeyMint1 does not mandate factory provisioning, so the SW
+# fallback is a perfectly-legitimate state.  KeyMint2 will disallow
+# factory provisioning and SW fallback will become irrelevant.
+KEYMASTER_SOFT_ATTESTATION_FALLBACK ?= true
 ifeq (true,$(call TOBOOL,$(KEYMASTER_SOFT_ATTESTATION_FALLBACK)))
 MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/contexts/soft_attestation_cert.cpp \
