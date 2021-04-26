@@ -396,12 +396,10 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
             LOG_E("Bootloader command %d not allowed after configure command\n",
                   msg->cmd);
             return ERR_NOT_IMPLEMENTED;
+        } else if (cmd_is_provisioning(msg->cmd) && !provisioning_allowed()) {
+            LOG_E("Provisioning command %d not allowed\n", msg->cmd);
+            return ERR_NOT_IMPLEMENTED;
         }
-    }
-
-    if (cmd_is_provisioning(msg->cmd) && !provisioning_allowed()) {
-        LOG_E("Provisioning command %d not allowed\n", msg->cmd);
-        return ERR_NOT_IMPLEMENTED;
     }
 
     switch (msg->cmd) {
