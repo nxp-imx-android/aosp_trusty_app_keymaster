@@ -170,58 +170,100 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
 
     for (auto& entry : key_description) {
         switch (entry.tag) {
-        case KM_TAG_INVALID:
-        case KM_TAG_BOOTLOADER_ONLY:
-        case KM_TAG_NONCE:
-        case KM_TAG_AUTH_TOKEN:
-        case KM_TAG_MAC_LENGTH:
+        // Tags that should never appear in key descriptions.
         case KM_TAG_ASSOCIATED_DATA:
+        case KM_TAG_AUTH_TOKEN:
+        case KM_TAG_BOOTLOADER_ONLY:
+        case KM_TAG_INVALID:
+        case KM_TAG_MAC_LENGTH:
+        case KM_TAG_NONCE:
+        case KM_TAG_ROOT_OF_TRUST:
         case KM_TAG_UNIQUE_ID:
+        case KM_TAG_IDENTITY_CREDENTIAL_KEY:
             return KM_ERROR_INVALID_KEY_BLOB;
 
-        case KM_TAG_ROLLBACK_RESISTANCE:
-            // Currently return UNAVAILABLE.
-            return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
+        // Tags used only to provide information for certificate creation, but
+        // which should not be included in blobs.
+        case KM_TAG_ATTESTATION_APPLICATION_ID:
+        case KM_TAG_ATTESTATION_CHALLENGE:
+        case KM_TAG_ATTESTATION_ID_BRAND:
+        case KM_TAG_ATTESTATION_ID_DEVICE:
+        case KM_TAG_ATTESTATION_ID_IMEI:
+        case KM_TAG_ATTESTATION_ID_MANUFACTURER:
+        case KM_TAG_ATTESTATION_ID_MEID:
+        case KM_TAG_ATTESTATION_ID_MODEL:
+        case KM_TAG_ATTESTATION_ID_PRODUCT:
+        case KM_TAG_ATTESTATION_ID_SERIAL:
+        case KM_TAG_CERTIFICATE_NOT_AFTER:
+        case KM_TAG_CERTIFICATE_NOT_BEFORE:
+        case KM_TAG_CERTIFICATE_SERIAL:
+        case KM_TAG_CERTIFICATE_SUBJECT:
+        case KM_TAG_RESET_SINCE_ID_ROTATION:
+            break;
 
+        // Unimplemented tags for which we return an error.
+        case KM_TAG_ROLLBACK_RESISTANCE:
+            return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
+        case KM_TAG_DEVICE_UNIQUE_ATTESTATION:
+            return KM_ERROR_INVALID_ARGUMENT;
+
+        // Unimplemented tags we silently ignore.
+        case KM_TAG_ALLOW_WHILE_ON_BODY:
+            break;
+
+        // Obsolete tags we silently ignore.
+        case KM_TAG_ALL_APPLICATIONS:
         case KM_TAG_ROLLBACK_RESISTANT:
+        case KM_TAG_CONFIRMATION_TOKEN:
+
+        // Tags that should not be added to blobs.
         case KM_TAG_APPLICATION_ID:
         case KM_TAG_APPLICATION_DATA:
-        case KM_TAG_ALL_APPLICATIONS:
-        case KM_TAG_ROOT_OF_TRUST:
-        case KM_TAG_ORIGIN:
-        case KM_TAG_RESET_SINCE_ID_ROTATION:
-        case KM_TAG_ALLOW_WHILE_ON_BODY:
-        case KM_TAG_ATTESTATION_CHALLENGE:
-        case KM_TAG_OS_VERSION:
-        case KM_TAG_OS_PATCHLEVEL:
-            // Ignore these.
             break;
 
-        case KM_TAG_PURPOSE:
+        // Tags we ignore because they'll be set below.
+        case KM_TAG_BOOT_PATCHLEVEL:
+        case KM_TAG_ORIGIN:
+        case KM_TAG_OS_PATCHLEVEL:
+        case KM_TAG_OS_VERSION:
+        case KM_TAG_VENDOR_PATCHLEVEL:
+            break;
+
+        // Tags that are hardware-enforced
         case KM_TAG_ALGORITHM:
-        case KM_TAG_KEY_SIZE:
-        case KM_TAG_RSA_PUBLIC_EXPONENT:
-        case KM_TAG_BLOB_USAGE_REQUIREMENTS:
-        case KM_TAG_DIGEST:
-        case KM_TAG_PADDING:
-        case KM_TAG_BLOCK_MODE:
-        case KM_TAG_MIN_SECONDS_BETWEEN_OPS:
-        case KM_TAG_MAX_USES_PER_BOOT:
-        case KM_TAG_USER_SECURE_ID:
-        case KM_TAG_NO_AUTH_REQUIRED:
         case KM_TAG_AUTH_TIMEOUT:
+        case KM_TAG_BLOB_USAGE_REQUIREMENTS:
+        case KM_TAG_BLOCK_MODE:
         case KM_TAG_CALLER_NONCE:
-        case KM_TAG_MIN_MAC_LENGTH:
-        case KM_TAG_KDF:
-        case KM_TAG_EC_CURVE:
+        case KM_TAG_DIGEST:
+        case KM_TAG_EARLY_BOOT_ONLY:
         case KM_TAG_ECIES_SINGLE_HASH_MODE:
+        case KM_TAG_EC_CURVE:
+        case KM_TAG_KDF:
+        case KM_TAG_KEY_SIZE:
+        case KM_TAG_MAX_USES_PER_BOOT:
+        case KM_TAG_MIN_MAC_LENGTH:
+        case KM_TAG_MIN_SECONDS_BETWEEN_OPS:
+        case KM_TAG_NO_AUTH_REQUIRED:
+        case KM_TAG_PADDING:
+        case KM_TAG_PURPOSE:
+        case KM_TAG_RSA_OAEP_MGF_DIGEST:
+        case KM_TAG_RSA_PUBLIC_EXPONENT:
         case KM_TAG_TRUSTED_CONFIRMATION_REQUIRED:
-#if WITH_HWWSK_SUPPORT
-        // keep KM_TAG_STORAGE_KEY is HWWSK service is enabled
-        case KM_TAG_STORAGE_KEY:
-#endif
+        case KM_TAG_TRUSTED_USER_PRESENCE_REQUIRED:
+        case KM_TAG_UNLOCKED_DEVICE_REQUIRED:
+        case KM_TAG_USER_SECURE_ID:
             hw_enforced->push_back(entry);
             break;
+
+        // KM_TAG_STORAGE_KEY handling depends if the feature is enabled.
+        case KM_TAG_STORAGE_KEY:
+#if WITH_HWWSK_SUPPORT
+            hw_enforced->push_back(entry);
+            break;
+#else
+            return KM_ERROR_UNIMPLEMENTED;
+#endif
 
         case KM_TAG_USER_AUTH_TYPE: {
             keymaster_key_param_t elem = entry;
@@ -236,23 +278,26 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
             hw_enforced->push_back(elem);
         } break;
 
+        // Keystore-enforced tags
         case KM_TAG_ACTIVE_DATETIME:
-        case KM_TAG_ORIGINATION_EXPIRE_DATETIME:
-        case KM_TAG_USAGE_EXPIRE_DATETIME:
-        case KM_TAG_USER_ID:
         case KM_TAG_ALL_USERS:
         case KM_TAG_CREATION_DATETIME:
-        case KM_TAG_INCLUDE_UNIQUE_ID:
         case KM_TAG_EXPORTABLE:
+        case KM_TAG_INCLUDE_UNIQUE_ID:
+        case KM_TAG_MAX_BOOT_LEVEL:
+        case KM_TAG_ORIGINATION_EXPIRE_DATETIME:
+        case KM_TAG_USAGE_COUNT_LIMIT:  // TODO(swillden): Implement for  n=1.
+        case KM_TAG_USAGE_EXPIRE_DATETIME:
+        case KM_TAG_USER_ID:
             sw_enforced->push_back(entry);
-            break;
-        default:
             break;
         }
     }
 
     hw_enforced->push_back(TAG_ORIGIN, origin);
+
     // these values will be 0 if not set by bootloader
+    // TODO(swillden): set VENDOR and BOOT patchlevels.
     hw_enforced->push_back(TAG_OS_VERSION, boot_os_version_);
     hw_enforced->push_back(TAG_OS_PATCHLEVEL, boot_os_patchlevel_);
 

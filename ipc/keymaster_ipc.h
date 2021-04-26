@@ -21,12 +21,12 @@
 
 #include <uapi/trusty_uuid.h>
 
+constexpr uint32_t KEYMASTER_RESP_BIT = 1;
+constexpr uint32_t KEYMASTER_STOP_BIT = 2;
+constexpr uint32_t KEYMASTER_REQ_SHIFT = 2;
+
 // Commands
 enum keymaster_command {
-    KEYMASTER_RESP_BIT = 1,
-    KEYMASTER_STOP_BIT = 2,
-    KEYMASTER_REQ_SHIFT = 2,
-
     KM_GENERATE_KEY = (0 << KEYMASTER_REQ_SHIFT),
     KM_BEGIN_OPERATION = (1 << KEYMASTER_REQ_SHIFT),
     KM_UPDATE_OPERATION = (2 << KEYMASTER_REQ_SHIFT),
@@ -54,6 +54,8 @@ enum keymaster_command {
     KM_DESTROY_ATTESTATION_IDS = (24 << KEYMASTER_REQ_SHIFT),
     KM_IMPORT_WRAPPED_KEY = (25 << KEYMASTER_REQ_SHIFT),
     KM_GET_VERSION_2 = (28 << KEYMASTER_REQ_SHIFT),
+    KM_EARLY_BOOT_ENDED = (29 << KEYMASTER_REQ_SHIFT),
+    KM_DEVICE_LOCKED = (30 << KEYMASTER_REQ_SHIFT),
 
     // Bootloader calls.
     KM_SET_BOOT_PARAMS = (0x1000 << KEYMASTER_REQ_SHIFT),

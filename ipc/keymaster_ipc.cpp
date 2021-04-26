@@ -401,7 +401,7 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         return ERR_NOT_IMPLEMENTED;
     }
 
-    switch (msg->cmd) {
+    switch (static_cast<keymaster_command>(msg->cmd)) {
     case KM_GENERATE_KEY:
         LOG_D("Dispatching GENERATE_KEY, size: %d", payload_size);
         return do_dispatch(&TrustyKeymaster::GenerateKey, msg, payload_size,
@@ -595,10 +595,24 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         return do_dispatch(&TrustyKeymaster::SetWrappedAttestationKey, msg,
                            payload_size, out, out_size);
 
-    default:
-        LOG_E("Cannot dispatch unknown command %d", msg->cmd);
+    case KM_DESTROY_ATTESTATION_IDS:
+        // TODO(swillden): Implement this.
+        LOG_E("Destroy attestation IDs is unimplemented.", 0);
         return ERR_NOT_IMPLEMENTED;
+
+    case KM_EARLY_BOOT_ENDED:
+        LOG_D("Dispatching KM_EARLY_BOOT_ENDED, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::EarlyBootEnded, msg, payload_size,
+                           out, out_size);
+
+    case KM_DEVICE_LOCKED:
+        LOG_D("Dispatching KM_DEVICE_LOCKED, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::DeviceLocked, msg, payload_size,
+                           out, out_size);
     }
+
+    LOG_E("Cannot dispatch unknown command %d", msg->cmd);
+    return ERR_NOT_IMPLEMENTED;
 }
 
 static bool keymaster_port_accessible(uuid_t* uuid, bool secure) {
