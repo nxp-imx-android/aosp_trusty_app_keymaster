@@ -21,6 +21,49 @@
 
 namespace keymaster {
 
+static inline bool copy_keymaster_algorithm_from_buf(
+        const uint8_t** buf_ptr,
+        const uint8_t* end,
+        keymaster_algorithm_t* state) {
+    uint32_t val;
+    if (copy_uint32_from_buf(buf_ptr, end, &val)) {
+        switch (val) {
+        case KM_ALGORITHM_RSA:
+        case KM_ALGORITHM_EC:
+        case KM_ALGORITHM_AES:
+        case KM_ALGORITHM_TRIPLE_DES:
+        case KM_ALGORITHM_HMAC:
+            *state = static_cast<keymaster_algorithm_t>(val);
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    return false;
+}
+
+static inline bool copy_keymaster_verified_boot_from_buf(
+        const uint8_t** buf_ptr,
+        const uint8_t* end,
+        keymaster_verified_boot_t* state) {
+    uint32_t val;
+    if (copy_uint32_from_buf(buf_ptr, end, &val)) {
+        switch (val) {
+        case KM_VERIFIED_BOOT_VERIFIED:
+        case KM_VERIFIED_BOOT_SELF_SIGNED:
+        case KM_VERIFIED_BOOT_UNVERIFIED:
+        case KM_VERIFIED_BOOT_FAILED:
+            *state = static_cast<keymaster_verified_boot_t>(val);
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    return false;
+}
+
 /**
  * Generic struct for Keymaster requests which hold a single raw buffer.
  */
@@ -80,7 +123,8 @@ struct SetBootParamsRequest : public KeymasterMessage {
         return copy_uint32_from_buf(buf_ptr, end, &os_version) &&
                copy_uint32_from_buf(buf_ptr, end, &os_patchlevel) &&
                copy_uint32_from_buf(buf_ptr, end, &device_locked) &&
-               copy_uint32_from_buf(buf_ptr, end, &verified_boot_state) &&
+               copy_keymaster_verified_boot_from_buf(buf_ptr, end,
+                                                     &verified_boot_state) &&
                verified_boot_key.Deserialize(buf_ptr, end) &&
                verified_boot_hash.Deserialize(buf_ptr, end);
     }
@@ -105,7 +149,7 @@ struct SetAttestationKeyRequest : public KeymasterMessage {
         return key_data.Serialize(buf, end);
     }
     bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
-        return copy_uint32_from_buf(buf_ptr, end, &algorithm) &&
+        return copy_keymaster_algorithm_from_buf(buf_ptr, end, &algorithm) &&
                key_data.Deserialize(buf_ptr, end);
     }
 
@@ -124,7 +168,7 @@ struct ClearAttestationCertChainRequest : public KeymasterMessage {
         return append_uint32_to_buf(buf, end, algorithm);
     }
     bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
-        return copy_uint32_from_buf(buf_ptr, end, &algorithm);
+        return copy_keymaster_algorithm_from_buf(buf_ptr, end, &algorithm);
     }
 
     keymaster_algorithm_t algorithm;
@@ -143,7 +187,7 @@ struct AppendAttestationCertChainRequest : public KeymasterMessage {
         return cert_data.Serialize(buf, end);
     }
     bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
-        return copy_uint32_from_buf(buf_ptr, end, &algorithm) &&
+        return copy_keymaster_algorithm_from_buf(buf_ptr, end, &algorithm) &&
                cert_data.Deserialize(buf_ptr, end);
     }
 
