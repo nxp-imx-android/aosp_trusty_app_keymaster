@@ -15,11 +15,8 @@
  */
 
 #include "trusty_keymaster_context.h"
-#include "secure_storage_manager.h"
 
-#include <lib/hwkey/hwkey.h>
-#include <lib/rng/trusty_rng.h>
-#include <openssl/hmac.h>
+#include <array>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/contexts/soft_attestation_cert.h>
@@ -37,7 +34,11 @@
 #include <keymaster/logger.h>
 #include <keymaster/operation.h>
 #include <keymaster/wrapped_key.h>
+#include <lib/hwkey/hwkey.h>
+#include <lib/rng/trusty_rng.h>
+#include <openssl/hmac.h>
 
+#include "secure_storage_manager.h"
 #include "trusty_aes_key.h"
 
 #ifdef KEYMASTER_DEBUG
@@ -378,6 +379,11 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
                                       upgraded_key);
 }
 
+constexpr std::array<uint8_t, 7> kKeystoreKeyBlobMagic = {'p', 'K', 'M', 'b',
+                                                          'l', 'o', 'b'};
+constexpr size_t kKeystoreKeyTypeOffset = kKeystoreKeyBlobMagic.size();
+constexpr size_t kKeystoreKeyBlobPrefixSize = kKeystoreKeyTypeOffset + 1;
+
 keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
         const KeymasterKeyBlob& blob,
         const AuthorizationSet& additional_params,
@@ -388,8 +394,49 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
     if (!key) {
         return KM_ERROR_UNEXPECTED_NULL_POINTER;
     }
-    DeserializedKey deserialized_key =
-            DeserializeAuthEncryptedBlob(blob, &error);
+
+    DeserializedKey deserialized_key;
+    if (blob.size() >= kKeystoreKeyBlobPrefixSize &&
+        std::equal(kKeystoreKeyBlobMagic.begin(), kKeystoreKeyBlobMagic.end(),
+                   blob.begin())) {
+        // This blob has a keystore km_compat prefix.  This means that it was
+        // created by keystore calling TrustyKeymaster through the km_compat
+        // layer.  The km_compat layer adds this prefix to determine whether
+        // it's actually a hardware blob that should be passed through to
+        // Keymaster, or whether it's a software only key and should be used by
+        // the emulation layer.
+        //
+        // In the case of hardware blobs, km_compat strips the prefix before
+        // handing the blob to Keymaster.  In the case of software blobs,
+        // km_compat never hands the blob to Keymaster.
+        //
+        // The fact that we've received this prefixed blob means that it was
+        // created through km_compat... but the device has now been upgraded
+        // from TrustyKeymaster to TrustyKeyMint, and so keystore is no longer
+        // using the km_compat layer, and the blob is just passed through with
+        // its prefix intact.
+        auto keyType = *(blob.begin() + kKeystoreKeyTypeOffset);
+        switch (keyType) {
+        case 0:
+            LOG_E("Software key blobs are not supported.", 0);
+            return KM_ERROR_INVALID_KEY_BLOB;
+
+        case 1:
+            // This is a hardware blob. Strip the prefix and use the blob.
+            deserialized_key = DeserializeAuthEncryptedBlob(
+                    KeymasterKeyBlob(blob.begin() + kKeystoreKeyBlobPrefixSize,
+                                     blob.size() - kKeystoreKeyBlobPrefixSize),
+                    &error);
+            break;
+
+        default:
+            LOG_E("Invalid keystore blob prefix value %d", keyType);
+            return KM_ERROR_INVALID_KEY_BLOB;
+        }
+    } else {
+        deserialized_key = DeserializeAuthEncryptedBlob(blob, &error);
+    }
+
     if (error != KM_ERROR_OK) {
         return error;
     }
