@@ -462,11 +462,11 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
         // its prefix intact.
         auto keyType = *(blob.begin() + kKeystoreKeyTypeOffset);
         switch (keyType) {
-        case 0:
+        case 1:
             LOG_E("Software key blobs are not supported.", 0);
             return KM_ERROR_INVALID_KEY_BLOB;
 
-        case 1:
+        case 0:
             // This is a hardware blob. Strip the prefix and use the blob.
             deserialized_key = DeserializeAuthEncryptedBlob(
                     KeymasterKeyBlob(blob.begin() + kKeystoreKeyBlobPrefixSize,
