@@ -107,7 +107,9 @@ TrustyKeymasterContext::TrustyKeymasterContext()
                                                *this /* random_source */));
     hmac_factory_.reset(new HmacKeyFactory(*this /* blob_maker */,
                                            *this /* random_source */));
-    verified_boot_key_.Reinitialize("Unbound", 7);
+    boot_params_.verified_boot_key.Reinitialize("Unbound", 7);
+    trusty_remote_provisioning_context_.reset(
+            new TrustyRemoteProvisioningContext());
 }
 
 const KeyFactory* TrustyKeymasterContext::GetKeyFactory(
@@ -298,8 +300,8 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
 
     // these values will be 0 if not set by bootloader
     // TODO(swillden): set VENDOR and BOOT patchlevels.
-    hw_enforced->push_back(TAG_OS_VERSION, boot_os_version_);
-    hw_enforced->push_back(TAG_OS_PATCHLEVEL, boot_os_patchlevel_);
+    hw_enforced->push_back(TAG_OS_VERSION, boot_params_.boot_os_version);
+    hw_enforced->push_back(TAG_OS_PATCHLEVEL, boot_params_.boot_os_patchlevel);
 
     if (sw_enforced->is_valid() != AuthorizationSet::OK)
         return TranslateAuthorizationSetError(sw_enforced->is_valid());
@@ -321,17 +323,19 @@ keymaster_error_t TrustyKeymasterContext::BuildHiddenAuthorizations(
     // hidden authorization set for binding to key.
     keymaster_key_param_t root_of_trust;
     root_of_trust.tag = KM_TAG_ROOT_OF_TRUST;
-    root_of_trust.blob.data = verified_boot_key_.begin();
-    root_of_trust.blob.data_length = verified_boot_key_.buffer_size();
+    root_of_trust.blob.data = boot_params_.verified_boot_key.begin();
+    root_of_trust.blob.data_length =
+            boot_params_.verified_boot_key.buffer_size();
     hidden->push_back(root_of_trust);
 
     root_of_trust.blob.data =
-            reinterpret_cast<const uint8_t*>(&verified_boot_state_);
-    root_of_trust.blob.data_length = sizeof(verified_boot_state_);
+            reinterpret_cast<const uint8_t*>(&boot_params_.verified_boot_state);
+    root_of_trust.blob.data_length = sizeof(boot_params_.verified_boot_state);
     hidden->push_back(root_of_trust);
 
-    root_of_trust.blob.data = reinterpret_cast<const uint8_t*>(&device_locked_);
-    root_of_trust.blob.data_length = sizeof(device_locked_);
+    root_of_trust.blob.data =
+            reinterpret_cast<const uint8_t*>(&boot_params_.device_locked);
+    root_of_trust.blob.data_length = sizeof(boot_params_.device_locked);
     hidden->push_back(root_of_trust);
 
     return TranslateAuthorizationSetError(hidden->is_valid());
@@ -395,21 +399,22 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
     }
 
     bool set_changed = false;
-    if (boot_os_version_ == 0) {
+    if (boot_params_.boot_os_version == 0) {
         // We need to allow "upgrading" OS version to zero, to support upgrading
         // from proper numbered releases to unnumbered development and preview
         // releases.
 
         if (int pos = key->sw_enforced().find(TAG_OS_VERSION);
-            pos != -1 && key->sw_enforced()[pos].integer != boot_os_version_) {
+            pos != -1 &&
+            key->sw_enforced()[pos].integer != boot_params_.boot_os_version) {
             set_changed = true;
-            key->sw_enforced()[pos].integer = boot_os_version_;
+            key->sw_enforced()[pos].integer = boot_params_.boot_os_version;
         }
     }
 
-    if (!UpgradeIntegerTag(TAG_OS_VERSION, boot_os_version_,
+    if (!UpgradeIntegerTag(TAG_OS_VERSION, boot_params_.boot_os_version,
                            &key->hw_enforced(), &set_changed) ||
-        !UpgradeIntegerTag(TAG_OS_PATCHLEVEL, boot_os_patchlevel_,
+        !UpgradeIntegerTag(TAG_OS_PATCHLEVEL, boot_params_.boot_os_patchlevel,
                            &key->hw_enforced(), &set_changed)) {
         // One of the version fields would have been a downgrade. Not allowed.
         return KM_ERROR_INVALID_ARGUMENT;
@@ -637,8 +642,8 @@ keymaster_error_t TrustyKeymasterContext::SetSystemVersion(
         // Note that version info is now set by Configure, rather than by the
         // bootloader.  This is to ensure that system-only updates can be done,
         // to avoid breaking Project Treble.
-        boot_os_version_ = os_version;
-        boot_os_patchlevel_ = os_patchlevel;
+        boot_params_.boot_os_version = os_version;
+        boot_params_.boot_os_patchlevel = os_patchlevel;
         version_info_set_ = true;
     }
 
@@ -659,8 +664,8 @@ keymaster_error_t TrustyKeymasterContext::SetSystemVersion(
 
 void TrustyKeymasterContext::GetSystemVersion(uint32_t* os_version,
                                               uint32_t* os_patchlevel) const {
-    *os_version = boot_os_version_;
-    *os_patchlevel = boot_os_patchlevel_;
+    *os_version = boot_params_.boot_os_version;
+    *os_patchlevel = boot_params_.boot_os_patchlevel;
 }
 
 const AttestationContext::VerifiedBootParams*
@@ -668,12 +673,13 @@ TrustyKeymasterContext::GetVerifiedBootParams(keymaster_error_t* error) const {
     VerifiedBootParams& vb_parms =
             const_cast<VerifiedBootParams&>(verified_boot_params_);
 
-    vb_parms.verified_boot_key = {verified_boot_key_.begin(),
-                                  verified_boot_key_.buffer_size()};
-    vb_parms.verified_boot_hash = {verified_boot_hash_.begin(),
-                                   verified_boot_hash_.buffer_size()};
-    vb_parms.verified_boot_state = verified_boot_state_;
-    vb_parms.device_locked = device_locked_;
+    vb_parms.verified_boot_key = {boot_params_.verified_boot_key.begin(),
+                                  boot_params_.verified_boot_key.buffer_size()};
+    vb_parms.verified_boot_hash = {
+            boot_params_.verified_boot_hash.begin(),
+            boot_params_.verified_boot_hash.buffer_size()};
+    vb_parms.verified_boot_state = boot_params_.verified_boot_state;
+    vb_parms.device_locked = boot_params_.device_locked;
 
     *error = KM_ERROR_OK;
     return &verified_boot_params_;
@@ -907,27 +913,28 @@ keymaster_error_t TrustyKeymasterContext::SetBootParams(
         const Buffer& verified_boot_hash) {
     if (root_of_trust_set_)
         return KM_ERROR_ROOT_OF_TRUST_ALREADY_SET;
-
-    verified_boot_hash_.Reinitialize(verified_boot_hash);
+    boot_params_.verified_boot_hash.Reinitialize(verified_boot_hash);
     root_of_trust_set_ = true;
-    verified_boot_state_ = verified_boot_state;
-    device_locked_ = device_locked;
-    verified_boot_key_.Reinitialize("", 0);
+    boot_params_.verified_boot_state = verified_boot_state;
+    boot_params_.device_locked = device_locked;
+    boot_params_.verified_boot_key.Reinitialize("", 0);
 
     // If the device is verified or self signed, load the key (if present)
     if ((verified_boot_state == KM_VERIFIED_BOOT_VERIFIED) ||
         (verified_boot_state == KM_VERIFIED_BOOT_SELF_SIGNED)) {
         if (verified_boot_key.buffer_size()) {
-            verified_boot_key_.Reinitialize(verified_boot_key);
+            boot_params_.verified_boot_key.Reinitialize(verified_boot_key);
         } else {
             // If no boot key was passed, default to unverified/unlocked
-            verified_boot_state_ = KM_VERIFIED_BOOT_UNVERIFIED;
-            device_locked_ = false;
+            boot_params_.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+            boot_params_.device_locked = false;
         }
     } else {
         // If the device image was not signed, it cannot be locked
-        device_locked_ = false;
+        boot_params_.device_locked = false;
     }
+
+    trusty_remote_provisioning_context_->SetBootParams(&boot_params_);
 
     return KM_ERROR_OK;
 }

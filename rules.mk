@@ -44,6 +44,8 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/android_keymaster/operation_table.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/serializable.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/keymaster_tags.cpp \
+	$(KEYMASTER_ROOT)/android_keymaster/remote_provisioning_utils.cpp \
+	$(KEYMASTER_ROOT)/cppcose/cppcose.cpp \
 	$(KEYMASTER_ROOT)/key_blob_utils/auth_encrypted_key_blob.cpp \
 	$(KEYMASTER_ROOT)/key_blob_utils/ocb.c \
 	$(KEYMASTER_ROOT)/key_blob_utils/ocb_utils.cpp \
@@ -77,6 +79,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/trusty_keymaster.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_context.cpp \
 	$(LOCAL_DIR)/trusty_keymaster_enforcement.cpp \
+	$(LOCAL_DIR)/trusty_remote_provisioning_context.cpp \
 	$(LOCAL_DIR)/secure_storage_manager.cpp \
 	$(LOCAL_DIR)/keymaster_attributes.pb.c \
 	$(NANOPB_DIR)/pb_common.c \

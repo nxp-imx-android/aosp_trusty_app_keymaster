@@ -27,6 +27,7 @@
 #include <keymaster/km_openssl/software_random_source.h>
 
 #include "trusty_keymaster_enforcement.h"
+#include "trusty_remote_provisioning_context.h"
 
 namespace keymaster {
 
@@ -145,6 +146,10 @@ public:
             const uint8_t confirmation_token[kConfirmationTokenSize])
             const override;
 
+    RemoteProvisioningContext* GetRemoteProvisioningContext() const override {
+        return trusty_remote_provisioning_context_.get();
+    }
+
 private:
     bool SeedRngIfNeeded() const;
     bool ShouldReseedRng() const;
@@ -199,18 +204,14 @@ private:
 
     bool root_of_trust_set_ = false;
     bool version_info_set_ = false;
-    uint32_t boot_os_version_ = 0;
-    uint32_t boot_os_patchlevel_ = 0;
-    Buffer verified_boot_key_;
-    keymaster_verified_boot_t verified_boot_state_ =
-            KM_VERIFIED_BOOT_UNVERIFIED;
-    bool device_locked_ = false;
-    Buffer verified_boot_hash_;
+    BootParams boot_params_;
     VerifiedBootParams verified_boot_params_ = {
             .verified_boot_key = {},
             .verified_boot_hash = {},
             .verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED,
             .device_locked = false};
+    UniquePtr<TrustyRemoteProvisioningContext>
+            trusty_remote_provisioning_context_;
 };
 
 }  // namespace keymaster

@@ -614,6 +614,16 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         LOG_D("Dispatching KM_DEVICE_LOCKED, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::DeviceLocked, msg, payload_size,
                            out, out_size);
+
+    case KM_GENERATE_RKP_KEY:
+        LOG_D("Dispatching KM_GENERATE_RKP_KEY, side %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::GenerateRkpKey, msg, payload_size,
+                           out, out_size);
+
+    case KM_GENERATE_CSR:
+        LOG_D("Dispatching KM_GENERATE_CSR, side %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::GenerateCsr, msg, payload_size,
+                           out, out_size);
     }
 
     LOG_E("Cannot dispatch unknown command %d", msg->cmd);
