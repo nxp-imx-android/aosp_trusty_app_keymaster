@@ -44,6 +44,17 @@ message KeymasterAttributes {
   optional bytes product_id = 2 [(nanopb).max_size=16];
 };
 
+message AttestationIds {
+    optional bytes brand = 1 [(nanopb).max_size=64];
+    optional bytes device = 2 [(nanopb).max_size=64];
+    optional bytes product = 3 [(nanopb).max_size=64];
+    optional bytes serial = 4 [(nanopb).max_size=64];
+    optional bytes imei = 5 [(nanopb).max_size=64];
+    optional bytes meid = 6 [(nanopb).max_size=64];
+    optional bytes manufacturer = 7 [(nanopb).max_size=64];
+    optional bytes model = 8 [(nanopb).max_size=64];
+};
+
 message AttestationKey {
   optional bytes key = 1 [(nanopb).max_size=2048];
   repeated AttestationCert certs = 2 [(nanopb).max_count=3];
@@ -51,4 +62,4 @@ message AttestationKey {
 
 message AttestationCert {
   required bytes content = 1 [(nanopb).max_size=2048];
-}
+};

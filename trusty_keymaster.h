@@ -61,6 +61,12 @@ public:
     void SetAttestationKey(const SetAttestationKeyRequest& request,
                            SetAttestationKeyResponse* response);
 
+    // SetDeviceIds sets all device IDs in the KM spec under ATTESTATION_ID_*
+    // This is a factory provisioning step that should not be callable after
+    // provisioning.
+    void SetAttestationIds(const SetAttestationIdsRequest& request,
+                           EmptyKeymasterResponse* response);
+
     // ClearAttestationCertChain clears the attestation certificate chain for
     // the specified algorithm.
     void ClearAttestationCertChain(

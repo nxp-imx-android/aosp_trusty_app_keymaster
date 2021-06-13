@@ -61,6 +61,19 @@ AttestationKeySlot keymaster_algorithm_to_key_slot(
     }
 }
 
+void TrustyKeymaster::SetAttestationIds(const SetAttestationIdsRequest& request,
+                                        EmptyKeymasterResponse* response) {
+    if (response == nullptr) {
+        return;
+    }
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+    response->error = ss_manager->SetAttestationIds(request);
+}
+
 void TrustyKeymaster::SetAttestationKey_enc(const SetAttestationKeyRequest& request,
                                         SetAttestationKeyResponse* response) {
     uint8_t out[2048] = {0};

@@ -43,6 +43,7 @@ HOST_INCLUDE_DIRS := \
 
 HOST_FLAGS := -Wpointer-arith \
 	-Wno-deprecated-declarations -fno-exceptions \
+	-Wno-error=c++14-extensions \
 	-DSTORAGE_FAKE \
 	-DPB_FIELD_16BIT \
 	-DPB_NO_STATIC_ASSERT \

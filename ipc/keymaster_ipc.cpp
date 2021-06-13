@@ -357,7 +357,7 @@ static bool provisioning_allowed(void) {
 
 // Returns true if |cmd| is only allowed in provisioning mode
 static bool cmd_is_provisioning(uint32_t cmd) {
-    return (cmd == KM_SET_ATTESTATION_KEY ||
+    return (cmd == KM_SET_ATTESTATION_KEY || cmd == KM_SET_ATTESTATION_IDS ||
             cmd == KM_APPEND_ATTESTATION_CERT_CHAIN ||
             cmd == KM_CLEAR_ATTESTATION_CERT_CHAIN);
 }
@@ -566,6 +566,11 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
     case KM_APPEND_ATTESTATION_CERT_CHAIN_ENC:
         LOG_D("Dispatching SET_ATTESTATION_CERT_CHAIN, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::AppendAttestationCertChain_enc, msg,
+                           payload_size, out, out_size);
+
+    case KM_SET_ATTESTATION_IDS:
+        LOG_D("Dispatching SET_ATTESTATION_IDS, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::SetAttestationIds, msg,
                            payload_size, out, out_size);
 
     case KM_APPEND_ATTESTATION_CERT_CHAIN:

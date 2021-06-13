@@ -95,6 +95,11 @@ public:
             const AuthorizationSet& attest_params,
             CertChainPtr* cert_chain) const override;
 
+
+    keymaster_error_t VerifyAndCopyDeviceIds(
+            const AuthorizationSet& attestation_params,
+            AuthorizationSet* values_to_attest) const override;
+
     keymaster_error_t GenerateUniqueId(uint64_t creation_date_time,
                                        const keymaster_blob_t& application_id,
                                        bool reset_since_rotation,

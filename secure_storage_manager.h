@@ -26,6 +26,7 @@ extern "C" {
 #include <libatap/atap_types.h>
 }
 #include "keymaster_attributes.pb.h"
+#include "trusty_keymaster_messages.h"
 
 namespace keymaster {
 
@@ -185,6 +186,18 @@ public:
     keymaster_error_t SetProductId(const uint8_t product_id[kProductIdSize]);
 
     /**
+     * Set the attestation IDs for the device. This function can only be used
+     * once unless Keymaster is in debug mode.
+     */
+    keymaster_error_t SetAttestationIds(
+            const SetAttestationIdsRequest& request);
+
+    /**
+     * Reads the attestations IDs for the device.
+     */
+    keymaster_error_t ReadAttestationIds(AttestationIds* attestation_ids_p);
+
+    /**
      * Delete the |product_id|.
      */
     keymaster_error_t DeleteProductId();
@@ -229,11 +242,14 @@ public:
 private:
     bool SecureStorageGetFileSize(const char* filename, uint64_t* size);
     bool SecureStorageDeleteFile(const char* filename);
+    int DoesFileExist(const char* filename);
     keymaster_error_t ReadKeymasterAttributes(
             KeymasterAttributes** km_attributes_p);
     keymaster_error_t WriteKeymasterAttributes(
             const KeymasterAttributes* km_attributes,
             bool commit);
+    keymaster_error_t WriteAttestationIds(const AttestationIds* attestation_ids,
+                                          bool commit);
     keymaster_error_t ReadAttestationKey(AttestationKeySlot key_slot,
                                          AttestationKey** attestation_key_p);
     keymaster_error_t WriteAttestationKey(AttestationKeySlot key_slot,

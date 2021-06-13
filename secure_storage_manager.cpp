@@ -45,8 +45,14 @@ const char* kAttributeFileName = "Attribute";
 const char* kLegacyAttestUuidFileName = "AttestUuid";
 const char* kLegacyProductIdFileName = "ProductId";
 
+// Name of the file to store attestation IDs in a protobuf format.
+const char* kAttestationIdsFileName = "AttestationIds";
+
 // Maximum file name size.
 static const int kStorageIdLengthMax = 64;
+
+// Maximum length for an individual attestation ID field.
+static const int kAttestationIdLengthMax = 64;
 
 // These values should match keymaster_attributes.proto descriptions.
 static const int kKeySizeMax = 2048;
@@ -403,6 +409,13 @@ keymaster_error_t SecureStorageManager::WriteKeymasterAttributes(
                         kAttributeFileName, commit);
 }
 
+keymaster_error_t SecureStorageManager::WriteAttestationIds(
+        const AttestationIds* attestation_ids,
+        bool commit) {
+    return EncodeToFile(AttestationIds_fields, attestation_ids,
+                        kAttestationIdsFileName, commit);
+}
+
 keymaster_error_t SecureStorageManager::ReadAttestationUuid(
         uint8_t attestation_uuid[kAttestationUuidSize]) {
     KeymasterAttributes* km_attributes_p;
@@ -498,6 +511,120 @@ keymaster_error_t SecureStorageManager::ReadProductId(
         return KM_ERROR_UNKNOWN_ERROR;
     }
     memcpy(product_id, km_attributes->product_id.bytes, kProductIdSize);
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t SecureStorageManager::SetAttestationIds(
+        const SetAttestationIdsRequest& request) {
+    AttestationIds* attestation_ids_p =
+            new AttestationIds(AttestationIds_init_zero);
+    UniquePtr<AttestationIds> attestation_ids(attestation_ids_p);
+#ifndef KEYMASTER_DEBUG
+    if (!DoesFileExist(kAttestationIdsFileName)) {
+        LOG_E("Error: Attestation IDs already set!\n", 0);
+        return KM_ERROR_INVALID_ARGUMENT;
+    }
+#endif /* KEYMASTER_DEBUG */
+    if (request.brand.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Brand ID too large: %d", request.brand.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.brand.buffer_size() > 0) {
+        attestation_ids->has_brand = true;
+        attestation_ids->brand.size = request.brand.buffer_size();
+        memcpy(attestation_ids->brand.bytes, request.brand.begin(),
+               request.brand.buffer_size());
+    }
+
+    if (request.device.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Device ID too large: %d", request.device.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.device.buffer_size() > 0) {
+        attestation_ids->has_device = true;
+        attestation_ids->device.size = request.device.buffer_size();
+        memcpy(attestation_ids->device.bytes, request.device.begin(),
+               request.device.buffer_size());
+    }
+
+    if (request.product.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Product ID too large: %d", request.product.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.product.buffer_size() > 0) {
+        attestation_ids->has_product = true;
+        attestation_ids->product.size = request.product.buffer_size();
+        memcpy(attestation_ids->product.bytes, request.product.begin(),
+               request.product.buffer_size());
+    }
+
+    if (request.serial.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Serial number too large: %d",
+              request.serial.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.serial.buffer_size() > 0) {
+        attestation_ids->has_serial = true;
+        attestation_ids->serial.size = request.serial.buffer_size();
+        memcpy(attestation_ids->serial.bytes, request.serial.begin(),
+               request.serial.buffer_size());
+    }
+
+    if (request.imei.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: IMEI ID too large: %d", request.imei.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.imei.buffer_size() > 0) {
+        attestation_ids->has_imei = true;
+        attestation_ids->imei.size = request.imei.buffer_size();
+        memcpy(attestation_ids->imei.bytes, request.imei.begin(),
+               request.imei.buffer_size());
+    }
+
+    if (request.meid.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: MEID ID too large: %d", request.meid.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.meid.buffer_size() > 0) {
+        attestation_ids->has_meid = true;
+        attestation_ids->meid.size = request.meid.buffer_size();
+        memcpy(attestation_ids->meid.bytes, request.meid.begin(),
+               request.meid.buffer_size());
+    }
+
+    if (request.manufacturer.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Manufacturer ID too large: %d",
+              request.manufacturer.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.manufacturer.buffer_size() > 0) {
+        attestation_ids->has_manufacturer = true;
+        attestation_ids->manufacturer.size = request.manufacturer.buffer_size();
+        memcpy(attestation_ids->manufacturer.bytes,
+               request.manufacturer.begin(),
+               request.manufacturer.buffer_size());
+    }
+
+    if (request.model.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Model ID too large: %d", request.model.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.model.buffer_size() > 0) {
+        attestation_ids->has_model = true;
+        attestation_ids->model.size = request.model.buffer_size();
+        memcpy(attestation_ids->model.bytes, request.model.begin(),
+               request.model.buffer_size());
+    }
+
+    keymaster_error_t err = WriteAttestationIds(attestation_ids.get(), true);
+    if (err != KM_ERROR_OK) {
+        CloseSession();
+    }
+    return err;
+}
+
+keymaster_error_t SecureStorageManager::ReadAttestationIds(
+        AttestationIds* attestation_ids_p) {
+    keymaster_error_t err = DecodeFromFile(
+            AttestationIds_fields, attestation_ids_p, kAttestationIdsFileName);
+    if (err < 0) {
+        LOG_E("Error: [%d] decoding from file '%s'", err,
+              kAttestationIdsFileName);
+        CloseSession();
+        return err;
+    }
     return KM_ERROR_OK;
 }
 
@@ -683,6 +810,11 @@ keymaster_error_t SecureStorageManager::DecodeFromFile(
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
     return KM_ERROR_OK;
+}
+
+int SecureStorageManager::DoesFileExist(const char filename[]) {
+    FileCloser file;
+    return file.open_file(session_handle_, filename, 0, 0);
 }
 
 #ifdef KEYMASTER_LEGACY_FORMAT
