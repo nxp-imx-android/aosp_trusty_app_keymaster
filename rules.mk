@@ -26,12 +26,12 @@ KEYMASTER_ROOT := $(TRUSTY_TOP)/system/keymaster
 # $(KEYMASTER_DIR)/keymaster_attributes.pb.c from MODULE_SRCS. For detail
 # explanation, please see the comments in *.proto file.
 #
-# PB_GEN_DIR := $(call TOBUILDDIR,proto)
-# include trusty/user/base/make/compile_proto.mk
-# $(eval $(call compile_proto,$(KEYMASTER_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
-# MODULE_SRCS += $(NANOPB_DEPS) $(NANOPB_GENERATED_C)
-# MODULE_SRCDEPS += $(NANOPB_GENERATED_HEADER)
-# MODULE_INCLOUDES += $(PB_GEN_DIR)
+#PB_GEN_DIR := $(call TOBUILDDIR,proto)
+#include trusty/user/base/make/compile_proto.mk
+#$(eval $(call compile_proto,$(LOCAL_DIR)/keymaster_attributes.proto,$(PB_GEN_DIR)))
+#MODULE_SRCS += $(NANOPB_DEPS) $(NANOPB_GENERATED_C)
+#MODULE_SRCDEPS += $(NANOPB_GENERATED_HEADER)
+#MODULE_INCLOUDES += $(PB_GEN_DIR)
 
 MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/android_keymaster/android_keymaster.cpp \

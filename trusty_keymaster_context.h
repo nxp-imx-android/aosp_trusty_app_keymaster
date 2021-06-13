@@ -98,6 +98,10 @@ public:
         return &enforcement_policy_;
     }
 
+    keymaster_error_t VerifyAndCopyDeviceIds(
+            const AuthorizationSet& attestation_params,
+            AuthorizationSet* values_to_attest) const override;
+
     KeymasterKeyBlob GetAttestationKey(keymaster_algorithm_t algorithm,
                                        keymaster_error_t* error) const override;
 

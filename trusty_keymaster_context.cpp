@@ -679,6 +679,90 @@ TrustyKeymasterContext::GetVerifiedBootParams(keymaster_error_t* error) const {
     return &verified_boot_params_;
 }
 
+#define PROTO_BYTES_DOES_NOT_MATCH_BLOB(blob, proto) \
+    ((blob).data_length != (proto).size) ||          \
+            (memcmp((blob).data, (proto).bytes, (proto).size) != 0)
+
+keymaster_error_t TrustyKeymasterContext::VerifyAndCopyDeviceIds(
+        const AuthorizationSet& attestation_params,
+        AuthorizationSet* values_to_attest) const {
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        LOG_E("Failed to open secure storage session.", 0);
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+
+    AttestationIds ids;
+    auto err = ss_manager->ReadAttestationIds(&ids);
+    if (err != KM_ERROR_OK) {
+        return err;
+    }
+
+    bool found_mismatch = false;
+    for (auto& entry : attestation_params) {
+        switch (entry.tag) {
+        case KM_TAG_ATTESTATION_ID_BRAND:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.brand);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_DEVICE:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.device);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_PRODUCT:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.product);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_SERIAL:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.serial);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_IMEI:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.imei);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_MEID:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.meid);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_MANUFACTURER:
+            found_mismatch |= PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob,
+                                                              ids.manufacturer);
+            values_to_attest->push_back(entry);
+            break;
+
+        case KM_TAG_ATTESTATION_ID_MODEL:
+            found_mismatch |=
+                    PROTO_BYTES_DOES_NOT_MATCH_BLOB(entry.blob, ids.model);
+            values_to_attest->push_back(entry);
+            break;
+
+        default:
+            // Ignore non-ID tags.
+            break;
+        }
+    }
+
+    if (found_mismatch) {
+        values_to_attest->Clear();
+        return KM_ERROR_CANNOT_ATTEST_IDS;
+    }
+
+    return KM_ERROR_OK;
+}
+
 KeymasterKeyBlob TrustyKeymasterContext::GetAttestationKey(
         keymaster_algorithm_t algorithm,
         keymaster_error_t* error) const {
