@@ -519,12 +519,6 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
     AttestationIds* attestation_ids_p =
             new AttestationIds(AttestationIds_init_zero);
     UniquePtr<AttestationIds> attestation_ids(attestation_ids_p);
-#ifndef KEYMASTER_DEBUG
-    if (!DoesFileExist(kAttestationIdsFileName)) {
-        LOG_E("Error: Attestation IDs already set!\n", 0);
-        return KM_ERROR_INVALID_ARGUMENT;
-    }
-#endif /* KEYMASTER_DEBUG */
     if (request.brand.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Brand ID too large: %d", request.brand.buffer_size());
         return KM_ERROR_INVALID_ARGUMENT;
@@ -810,11 +804,6 @@ keymaster_error_t SecureStorageManager::DecodeFromFile(
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
     return KM_ERROR_OK;
-}
-
-int SecureStorageManager::DoesFileExist(const char filename[]) {
-    FileCloser file;
-    return file.open_file(session_handle_, filename, 0, 0);
 }
 
 #ifdef KEYMASTER_LEGACY_FORMAT

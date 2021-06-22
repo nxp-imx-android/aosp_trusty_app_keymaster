@@ -242,7 +242,6 @@ public:
 private:
     bool SecureStorageGetFileSize(const char* filename, uint64_t* size);
     bool SecureStorageDeleteFile(const char* filename);
-    int DoesFileExist(const char* filename);
     keymaster_error_t ReadKeymasterAttributes(
             KeymasterAttributes** km_attributes_p);
     keymaster_error_t WriteKeymasterAttributes(
