@@ -28,6 +28,7 @@
 
 #include "trusty_keymaster_enforcement.h"
 #include "trusty_remote_provisioning_context.h"
+#include "trusty_secure_deletion_secret_storage.h"
 
 namespace keymaster {
 
@@ -85,10 +86,10 @@ public:
 
     keymaster_error_t ParseKeyBlob(const KeymasterKeyBlob& blob,
                                    const AuthorizationSet& additional_params,
-                                   UniquePtr<Key>* key) const override {
-        return ParseKeyBlob(blob, additional_params, key,
-                            false /* allow_ocb */);
-    }
+                                   UniquePtr<Key>* key) const override;
+
+    keymaster_error_t DeleteKey(const KeymasterKeyBlob& blob) const override;
+    keymaster_error_t DeleteAllKeys() const override;
 
     keymaster_error_t AddRngEntropy(const uint8_t* buf,
                                     size_t length) const override;
@@ -97,6 +98,10 @@ public:
 
     KeymasterEnforcement* enforcement_policy() override {
         return &enforcement_policy_;
+    }
+
+    SecureDeletionSecretStorage* secure_deletion_secret_storage() override {
+        return &secure_deletion_secret_storage_;
     }
 
     keymaster_error_t VerifyAndCopyDeviceIds(
@@ -186,23 +191,18 @@ private:
     keymaster_error_t SetAuthorizations(const AuthorizationSet& key_description,
                                         keymaster_key_origin_t origin,
                                         AuthorizationSet* hw_enforced,
-                                        AuthorizationSet* sw_enforced) const;
+                                        AuthorizationSet* sw_enforced,
+                                        bool has_secure_deletion) const;
     keymaster_error_t BuildHiddenAuthorizations(
             const AuthorizationSet& input_set,
             AuthorizationSet* hidden) const;
     keymaster_error_t DeriveMasterKey(KeymasterKeyBlob* master_key) const;
 
-    /*
-     * This ParseKeyBlob overload does the actual work of parsing key blobs,
-     * whether encrypted in AES-OCB mode or AES-GCM mode.  If allow_ocb is
-     * false, blobs encrypted in AES-OCB mode will be rejected with
-     * KM_ERROR_KEY_REQUIRES_UPGRADE, so the client will call UpgradeKey and get
-     * the blob re-encrypted with AES-GCM.
-     */
-    keymaster_error_t ParseKeyBlob(const KeymasterKeyBlob& blob,
-                                   const AuthorizationSet& additional_params,
-                                   UniquePtr<Key>* key,
-                                   bool allow_ocb) const;
+    KmErrorOr<DeserializedKey> DeserializeKmCompatKeyBlob(
+            const KeymasterKeyBlob& blob) const;
+    KmErrorOr<DeserializedKey> DeserializeKeyBlob(
+            const KeymasterKeyBlob& blob) const;
+
     /*
      * CreateAuthEncryptedKeyBlob takes a key description authorization set, key
      * material, and hardware and software authorization sets and produces an
@@ -215,9 +215,11 @@ private:
             const KeymasterKeyBlob& key_material,
             const AuthorizationSet& hw_enforced,
             const AuthorizationSet& sw_enforced,
+            const std::optional<SecureDeletionData>& secure_deletion_data,
             KeymasterKeyBlob* blob) const;
 
     TrustyKeymasterEnforcement enforcement_policy_;
+    TrustySecureDeletionSecretStorage secure_deletion_secret_storage_;
 
     UniquePtr<KeyFactory> aes_factory_;
     UniquePtr<KeyFactory> ec_factory_;

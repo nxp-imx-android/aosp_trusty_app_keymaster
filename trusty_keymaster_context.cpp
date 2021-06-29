@@ -41,6 +41,8 @@
 #include "secure_storage_manager.h"
 #include "trusty_aes_key.h"
 
+constexpr bool kUseSecureDeletion = false;
+
 #ifdef KEYMASTER_DEBUG
 #pragma message \
         "Compiling with fake Keymaster Root of Trust values! DO NOT SHIP THIS!"
@@ -94,6 +96,7 @@ bool UpgradeIntegerTag(keymaster_tag_t tag,
 TrustyKeymasterContext::TrustyKeymasterContext()
         : AttestationContext(KmVersion::KEYMASTER_4),
           enforcement_policy_(this),
+          secure_deletion_secret_storage_(*this /* random_source */),
           rng_initialized_(false),
           calls_since_reseed_(0) {
     LOG_D("Creating TrustyKeymaster", 0);
@@ -166,7 +169,8 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         const AuthorizationSet& key_description,
         keymaster_key_origin_t origin,
         AuthorizationSet* hw_enforced,
-        AuthorizationSet* sw_enforced) const {
+        AuthorizationSet* sw_enforced,
+        bool has_secure_deletion) const {
     sw_enforced->Clear();
     hw_enforced->Clear();
 
@@ -204,8 +208,6 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
             break;
 
         // Unimplemented tags for which we return an error.
-        case KM_TAG_ROLLBACK_RESISTANCE:
-            return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
         case KM_TAG_DEVICE_UNIQUE_ATTESTATION:
             return KM_ERROR_INVALID_ARGUMENT;
 
@@ -249,6 +251,7 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         case KM_TAG_NO_AUTH_REQUIRED:
         case KM_TAG_PADDING:
         case KM_TAG_PURPOSE:
+        case KM_TAG_ROLLBACK_RESISTANCE:
         case KM_TAG_RSA_OAEP_MGF_DIGEST:
         case KM_TAG_RSA_PUBLIC_EXPONENT:
         case KM_TAG_TRUSTED_CONFIRMATION_REQUIRED:
@@ -280,6 +283,17 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
             hw_enforced->push_back(elem);
         } break;
 
+        case KM_TAG_USAGE_COUNT_LIMIT:
+            LOG_D("Found usage count limit tag: %u", entry.integer);
+            if (entry.integer == 1 && has_secure_deletion) {
+                // We can enforce a usage count of 1 in HW.
+                hw_enforced->push_back(entry);
+            } else {
+                // Otherwise we delegate to keystore.
+                sw_enforced->push_back(entry);
+            }
+            break;
+
         // Keystore-enforced tags
         case KM_TAG_ACTIVE_DATETIME:
         case KM_TAG_ALL_USERS:
@@ -288,7 +302,6 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
         case KM_TAG_INCLUDE_UNIQUE_ID:
         case KM_TAG_MAX_BOOT_LEVEL:
         case KM_TAG_ORIGINATION_EXPIRE_DATETIME:
-        case KM_TAG_USAGE_COUNT_LIMIT:  // TODO(swillden): Implement for  n=1.
         case KM_TAG_USAGE_EXPIRE_DATETIME:
         case KM_TAG_USER_ID:
             sw_enforced->push_back(entry);
@@ -353,6 +366,7 @@ keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
         const KeymasterKeyBlob& key_material,
         const AuthorizationSet& hw_enforced,
         const AuthorizationSet& sw_enforced,
+        const std::optional<SecureDeletionData>& secure_deletion_data,
         KeymasterKeyBlob* blob) const {
     AuthorizationSet hidden;
     keymaster_error_t error =
@@ -362,18 +376,30 @@ keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
 
     KeymasterKeyBlob master_key;
     error = DeriveMasterKey(&master_key);
-    if (error != KM_ERROR_OK)
+    if (error != KM_ERROR_OK) {
         return error;
+    }
 
-    KmErrorOr<EncryptedKey> encrypted_key =
-            EncryptKey(key_material, AES_GCM_WITH_SW_ENFORCED, hw_enforced,
-                       sw_enforced, hidden, master_key, *this /* random */);
+    KmErrorOr<EncryptedKey> encrypted_key;
+    if (secure_deletion_data) {
+        encrypted_key = EncryptKey(key_material, AES_GCM_WITH_SECURE_DELETION,
+                                   hw_enforced, sw_enforced, hidden,
+                                   *secure_deletion_data, master_key,
+                                   *this /* random */);
+    } else {
+        encrypted_key =
+                EncryptKey(key_material, AES_GCM_WITH_SW_ENFORCED, hw_enforced,
+                           sw_enforced, hidden, SecureDeletionData{},
+                           master_key, *this /* random */);
+    }
     if (!encrypted_key) {
         return encrypted_key.error();
     }
 
     KmErrorOr<KeymasterKeyBlob> serialized_key = SerializeAuthEncryptedBlob(
-            *encrypted_key, hw_enforced, sw_enforced);
+            *encrypted_key, hw_enforced, sw_enforced,
+            secure_deletion_data ? secure_deletion_data->key_slot : 0);
+
     if (!serialized_key) {
         return serialized_key.error();
     }
@@ -382,6 +408,24 @@ keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
     return KM_ERROR_OK;
 }
 
+class KeySlotCleanup {
+public:
+    KeySlotCleanup(const SecureDeletionSecretStorage& storage,
+                   uint32_t key_slot)
+            : storage_(storage), key_slot_(key_slot) {}
+    ~KeySlotCleanup() {
+        if (key_slot_ != 0) {
+            storage_.DeleteKey(key_slot_);
+        }
+    }
+
+    void release() { key_slot_ = 0; }
+
+private:
+    const SecureDeletionSecretStorage& storage_;
+    uint32_t key_slot_;
+};
+
 keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
         const AuthorizationSet& key_description,
         keymaster_key_origin_t origin,
@@ -389,13 +433,59 @@ keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
         KeymasterKeyBlob* blob,
         AuthorizationSet* hw_enforced,
         AuthorizationSet* sw_enforced) const {
-    keymaster_error_t error = SetAuthorizations(key_description, origin,
-                                                hw_enforced, sw_enforced);
-    if (error != KM_ERROR_OK)
-        return error;
+    bool request_rollback_resistance =
+            key_description.Contains(TAG_ROLLBACK_RESISTANCE);
+    bool request_usage_limit =
+            key_description.Contains(TAG_USAGE_COUNT_LIMIT, 1);
+    bool request_secure_deletion =
+            request_rollback_resistance || request_usage_limit;
 
-    return CreateAuthEncryptedKeyBlob(key_description, key_material,
-                                      *hw_enforced, *sw_enforced, blob);
+    LOG_D("Getting secure deletion data", 0);
+    std::optional<SecureDeletionData> sdd;
+    if (kUseSecureDeletion) {
+        sdd = secure_deletion_secret_storage_.CreateDataForNewKey(
+                request_secure_deletion,
+                /* is_upgrade */ false);
+    }
+
+    if (sdd) {
+        LOG_D("Got secure deletion data, FR size = %zu, SD size = %zu, slot = %u",
+              sdd->factory_reset_secret.buffer_size(),
+              sdd->secure_deletion_secret.buffer_size(), sdd->key_slot);
+    } else if (!kUseSecureDeletion) {
+        LOG_I("Not using secure deletion", 0);
+    } else {
+        LOG_W("Failed to get secure deletion data. storageproxy not up?", 0);
+    }
+
+    uint32_t key_slot = sdd ? sdd->key_slot : 0;
+    bool has_secure_deletion = key_slot != 0;
+    if (request_rollback_resistance && !has_secure_deletion) {
+        return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
+    }
+
+    // At this point we may have stored a secure deletion secret for this key.
+    // If something goes wrong before we return the blob, that slot will leak.
+    // Create an object to clean up on the error paths.
+    KeySlotCleanup key_slot_cleanup(secure_deletion_secret_storage_, key_slot);
+
+    keymaster_error_t error =
+            SetAuthorizations(key_description, origin, hw_enforced, sw_enforced,
+                              has_secure_deletion);
+
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    error = CreateAuthEncryptedKeyBlob(key_description, key_material,
+                                       *hw_enforced, *sw_enforced,
+                                       std::move(sdd), blob);
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    key_slot_cleanup.release();
+    return KM_ERROR_OK;
 }
 
 keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
@@ -403,8 +493,8 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
         const AuthorizationSet& upgrade_params,
         KeymasterKeyBlob* upgraded_key) const {
     UniquePtr<Key> key;
-    keymaster_error_t error = ParseKeyBlob(key_to_upgrade, upgrade_params, &key,
-                                           true /* allow_ocb */);
+    keymaster_error_t error =
+            ParseKeyBlob(key_to_upgrade, upgrade_params, &key);
     LOG_I("Upgrading key blob", 1);
     if (error != KM_ERROR_OK) {
         return error;
@@ -442,9 +532,29 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
         return KM_ERROR_OK;
     }
 
-    return CreateAuthEncryptedKeyBlob(upgrade_params, key->key_material(),
-                                      key->hw_enforced(), key->sw_enforced(),
-                                      upgraded_key);
+    bool has_secure_deletion = (key->secure_deletion_slot() != 0);
+
+    std::optional<SecureDeletionData> sdd;
+    if (kUseSecureDeletion) {
+        sdd = secure_deletion_secret_storage_.CreateDataForNewKey(
+                has_secure_deletion, true /* is_upgrade */);
+    }
+
+    // At this point we may have stored a secure deletion secret for this key.
+    // If something goes wrong before we return the blob, that slot will leak.
+    // Create an object to clean up on the error paths.
+    KeySlotCleanup key_slot_cleanup(secure_deletion_secret_storage_,
+                                    sdd ? sdd->key_slot : 0);
+
+    error = CreateAuthEncryptedKeyBlob(upgrade_params, key->key_material(),
+                                       key->hw_enforced(), key->sw_enforced(),
+                                       std::move(sdd), upgraded_key);
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    key_slot_cleanup.release();
+    return KM_ERROR_OK;
 }
 
 constexpr std::array<uint8_t, 7> kKeystoreKeyBlobMagic = {'p', 'K', 'M', 'b',
@@ -452,71 +562,72 @@ constexpr std::array<uint8_t, 7> kKeystoreKeyBlobMagic = {'p', 'K', 'M', 'b',
 constexpr size_t kKeystoreKeyTypeOffset = kKeystoreKeyBlobMagic.size();
 constexpr size_t kKeystoreKeyBlobPrefixSize = kKeystoreKeyTypeOffset + 1;
 
+KmErrorOr<DeserializedKey> TrustyKeymasterContext::DeserializeKmCompatKeyBlob(
+        const KeymasterKeyBlob& blob) const {
+    // This blob has a keystore km_compat prefix.  This means that it was
+    // created by keystore calling TrustyKeymaster through the km_compat layer.
+    // The km_compat layer adds this prefix to determine whether it's actually a
+    // hardware blob that should be passed through to Keymaster, or whether it's
+    // a software only key and should be used by the emulation layer.
+    //
+    // In the case of hardware blobs, km_compat strips the prefix before handing
+    // the blob to Keymaster.  In the case of software blobs, km_compat never
+    // hands the blob to Keymaster.
+    //
+    // The fact that we've received this prefixed blob means that it was created
+    // through km_compat... but the device has now been upgraded from
+    // TrustyKeymaster to TrustyKeyMint, and so keystore is no longer using the
+    // km_compat layer, and the blob is just passed through with its prefix
+    // intact.
+    auto keyType = *(blob.begin() + kKeystoreKeyTypeOffset);
+    switch (keyType) {
+    case 0:
+        // This is a hardware blob. Strip the prefix and use the blob.
+        return DeserializeAuthEncryptedBlob(
+                KeymasterKeyBlob(blob.begin() + kKeystoreKeyBlobPrefixSize,
+                                 blob.size() - kKeystoreKeyBlobPrefixSize));
+
+    case 1:
+        LOG_E("Software key blobs are not supported.", 0);
+        return KM_ERROR_INVALID_KEY_BLOB;
+
+    default:
+        LOG_E("Invalid keystore blob prefix value %d", keyType);
+        return KM_ERROR_INVALID_KEY_BLOB;
+    }
+}
+
+bool is_km_compat_blob(const KeymasterKeyBlob& blob) {
+    return blob.size() >= kKeystoreKeyBlobPrefixSize &&
+           std::equal(kKeystoreKeyBlobMagic.begin(),
+                      kKeystoreKeyBlobMagic.end(), blob.begin());
+}
+
+KmErrorOr<DeserializedKey> TrustyKeymasterContext::DeserializeKeyBlob(
+        const KeymasterKeyBlob& blob) const {
+    if (is_km_compat_blob(blob)) {
+        return DeserializeKmCompatKeyBlob(blob);
+    } else {
+        return DeserializeAuthEncryptedBlob(blob);
+    }
+}
+
 keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
         const KeymasterKeyBlob& blob,
         const AuthorizationSet& additional_params,
-        UniquePtr<Key>* key,
-        bool allow_ocb) const {
+        UniquePtr<Key>* key) const {
     keymaster_error_t error;
 
     if (!key) {
         return KM_ERROR_UNEXPECTED_NULL_POINTER;
     }
 
-    KmErrorOr<DeserializedKey> deserialized_key;
-    if (blob.size() >= kKeystoreKeyBlobPrefixSize &&
-        std::equal(kKeystoreKeyBlobMagic.begin(), kKeystoreKeyBlobMagic.end(),
-                   blob.begin())) {
-        // This blob has a keystore km_compat prefix.  This means that it was
-        // created by keystore calling TrustyKeymaster through the km_compat
-        // layer.  The km_compat layer adds this prefix to determine whether
-        // it's actually a hardware blob that should be passed through to
-        // Keymaster, or whether it's a software only key and should be used by
-        // the emulation layer.
-        //
-        // In the case of hardware blobs, km_compat strips the prefix before
-        // handing the blob to Keymaster.  In the case of software blobs,
-        // km_compat never hands the blob to Keymaster.
-        //
-        // The fact that we've received this prefixed blob means that it was
-        // created through km_compat... but the device has now been upgraded
-        // from TrustyKeymaster to TrustyKeyMint, and so keystore is no longer
-        // using the km_compat layer, and the blob is just passed through with
-        // its prefix intact.
-        auto keyType = *(blob.begin() + kKeystoreKeyTypeOffset);
-        switch (keyType) {
-        case 1:
-            LOG_E("Software key blobs are not supported.", 0);
-            return KM_ERROR_INVALID_KEY_BLOB;
-
-        case 0:
-            // This is a hardware blob. Strip the prefix and use the blob.
-            deserialized_key = DeserializeAuthEncryptedBlob(
-                    KeymasterKeyBlob(blob.begin() + kKeystoreKeyBlobPrefixSize,
-                                     blob.size() - kKeystoreKeyBlobPrefixSize));
-            break;
-
-        default:
-            LOG_E("Invalid keystore blob prefix value %d", keyType);
-            return KM_ERROR_INVALID_KEY_BLOB;
-        }
-    } else {
-        deserialized_key = DeserializeAuthEncryptedBlob(blob);
-    }
-
+    KmErrorOr<DeserializedKey> deserialized_key = DeserializeKeyBlob(blob);
     if (!deserialized_key) {
         return deserialized_key.error();
     }
-
     LOG_D("Deserialized blob with format: %d",
           deserialized_key->encrypted_key.format);
-    if (deserialized_key->encrypted_key.format == AES_OCB && !allow_ocb) {
-        static size_t ocb_count = 0;
-        // b/185811713: This is a hack to work around the fact that keystore2
-        // doesn't currently handle upgrades of storage key blobs correctly.
-        LOG_D("Accepting AES-OCB blob #%d. Tsk, tsk.", ++ocb_count);
-        // return KM_ERROR_KEY_REQUIRES_UPGRADE;
-    }
 
     KeymasterKeyBlob master_key;
     error = DeriveMasterKey(&master_key);
@@ -530,10 +641,18 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
         return error;
     }
 
+    SecureDeletionData sdd;
+    if (deserialized_key->encrypted_key.format ==
+        AES_GCM_WITH_SECURE_DELETION) {
+        // This key requires secure deletion data.
+        sdd = secure_deletion_secret_storage_.GetDataForKey(
+                deserialized_key->key_slot);
+    }
+
     LOG_D("Decrypting blob with format: %d",
           deserialized_key->encrypted_key.format);
     KmErrorOr<KeymasterKeyBlob> key_material =
-            DecryptKey(*deserialized_key, hidden, master_key);
+            DecryptKey(*deserialized_key, hidden, sdd, master_key);
     if (!key_material) {
         return key_material.error();
     }
@@ -544,9 +663,31 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
     }
 
     auto factory = GetKeyFactory(algorithm);
-    return factory->LoadKey(std::move(*key_material), additional_params,
-                            std::move(deserialized_key->hw_enforced),
-                            std::move(deserialized_key->sw_enforced), key);
+    error = factory->LoadKey(std::move(*key_material), additional_params,
+                             std::move(deserialized_key->hw_enforced),
+                             std::move(deserialized_key->sw_enforced), key);
+    if (key && key->get()) {
+        (*key)->set_secure_deletion_slot(deserialized_key->key_slot);
+    }
+
+    return error;
+}
+
+keymaster_error_t TrustyKeymasterContext::DeleteKey(
+        const KeymasterKeyBlob& blob) const {
+    KmErrorOr<DeserializedKey> deserialized_key = DeserializeKeyBlob(blob);
+    if (deserialized_key) {
+        LOG_D("Deserialized blob with format: %d",
+              deserialized_key->encrypted_key.format);
+        secure_deletion_secret_storage_.DeleteKey(deserialized_key->key_slot);
+    }
+
+    return KM_ERROR_OK;
+}
+
+keymaster_error_t TrustyKeymasterContext::DeleteAllKeys() const {
+    secure_deletion_secret_storage_.DeleteAllKeys();
+    return KM_ERROR_OK;
 }
 
 keymaster_error_t TrustyKeymasterContext::AddRngEntropy(const uint8_t* buf,
@@ -621,7 +762,7 @@ keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
     }
 
     hwkey_close(session);
-    LOG_I("Key derivation complete", 0);
+    LOG_D("Key derivation complete", 0);
     return KM_ERROR_OK;
 }
 
@@ -991,7 +1132,8 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
         return KM_ERROR_INCOMPATIBLE_PURPOSE;
     }
 
-    // Check Padding mode is RSA_OAEP and digest is SHA_2_256 (spec mandated)
+    // Check Padding mode is RSA_OAEP and digest is SHA_2_256 (spec
+    // mandated)
     if (!wrapping_key_auths.Contains(TAG_DIGEST, KM_DIGEST_SHA_2_256)) {
         LOG_E("Wrapping key lacks authorization for SHA2-256", 0);
         return KM_ERROR_INCOMPATIBLE_DIGEST;
