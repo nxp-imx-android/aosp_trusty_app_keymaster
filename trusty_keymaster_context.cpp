@@ -299,9 +299,16 @@ keymaster_error_t TrustyKeymasterContext::SetAuthorizations(
     hw_enforced->push_back(TAG_ORIGIN, origin);
 
     // these values will be 0 if not set by bootloader
-    // TODO(swillden): set VENDOR and BOOT patchlevels.
     hw_enforced->push_back(TAG_OS_VERSION, boot_params_.boot_os_version);
     hw_enforced->push_back(TAG_OS_PATCHLEVEL, boot_params_.boot_os_patchlevel);
+
+    if (vendor_patchlevel_.has_value()) {
+        hw_enforced->push_back(TAG_VENDOR_PATCHLEVEL,
+                               vendor_patchlevel_.value());
+    }
+    if (boot_patchlevel_.has_value()) {
+        hw_enforced->push_back(TAG_BOOT_PATCHLEVEL, boot_patchlevel_.value());
+    }
 
     if (sw_enforced->is_valid() != AuthorizationSet::OK)
         return TranslateAuthorizationSetError(sw_enforced->is_valid());
@@ -415,7 +422,13 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
     if (!UpgradeIntegerTag(TAG_OS_VERSION, boot_params_.boot_os_version,
                            &key->hw_enforced(), &set_changed) ||
         !UpgradeIntegerTag(TAG_OS_PATCHLEVEL, boot_params_.boot_os_patchlevel,
-                           &key->hw_enforced(), &set_changed)) {
+                           &key->hw_enforced(), &set_changed) ||
+        (vendor_patchlevel_.has_value() &&
+         !UpgradeIntegerTag(TAG_VENDOR_PATCHLEVEL, vendor_patchlevel_.value(),
+                            &key->hw_enforced(), &set_changed)) ||
+        (boot_patchlevel_.has_value() &&
+         !UpgradeIntegerTag(TAG_BOOT_PATCHLEVEL, boot_patchlevel_.value(),
+                            &key->hw_enforced(), &set_changed))) {
         // One of the version fields would have been a downgrade. Not allowed.
         return KM_ERROR_INVALID_ARGUMENT;
     }

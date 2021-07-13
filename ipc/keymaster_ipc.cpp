@@ -616,14 +616,26 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
                            out, out_size);
 
     case KM_GENERATE_RKP_KEY:
-        LOG_D("Dispatching KM_GENERATE_RKP_KEY, side %d", payload_size);
+        LOG_D("Dispatching KM_GENERATE_RKP_KEY, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::GenerateRkpKey, msg, payload_size,
                            out, out_size);
 
     case KM_GENERATE_CSR:
-        LOG_D("Dispatching KM_GENERATE_CSR, side %d", payload_size);
+        LOG_D("Dispatching KM_GENERATE_CSR, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::GenerateCsr, msg, payload_size,
                            out, out_size);
+
+    case KM_CONFIGURE_VENDOR_PATCHLEVEL:
+        LOG_D("Dispatching KM_CONFIGURE_VENDOR_PATCHLEVEL, size %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::ConfigureVendorPatchlevel, msg,
+                           payload_size, out, out_size);
+
+    case KM_CONFIGURE_BOOT_PATCHLEVEL:
+        LOG_D("Dispatching KM_CONFIGURE_BOOT_PATCHLEVEL, size %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::ConfigureBootPatchlevel, msg,
+                           payload_size, out, out_size);
     }
 
     LOG_E("Cannot dispatch unknown command %d", msg->cmd);
