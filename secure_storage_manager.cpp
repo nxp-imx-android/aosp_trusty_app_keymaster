@@ -611,6 +611,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
 
 keymaster_error_t SecureStorageManager::ReadAttestationIds(
         AttestationIds* attestation_ids_p) {
+    *attestation_ids_p = AttestationIds_init_zero;
     keymaster_error_t err = DecodeFromFile(
             AttestationIds_fields, attestation_ids_p, kAttestationIdsFileName);
     if (err < 0) {
