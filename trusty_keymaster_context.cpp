@@ -365,16 +365,21 @@ keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
     if (error != KM_ERROR_OK)
         return error;
 
-    EncryptedKey encrypted_key = EncryptKey(
-            key_material, AES_GCM_WITH_SW_ENFORCED, hw_enforced, sw_enforced,
-            hidden, master_key, *this /* random */, &error);
-    if (error != KM_ERROR_OK) {
-        return error;
+    KmErrorOr<EncryptedKey> encrypted_key =
+            EncryptKey(key_material, AES_GCM_WITH_SW_ENFORCED, hw_enforced,
+                       sw_enforced, hidden, master_key, *this /* random */);
+    if (!encrypted_key) {
+        return encrypted_key.error();
     }
 
-    *blob = SerializeAuthEncryptedBlob(encrypted_key, hw_enforced, sw_enforced,
-                                       &error);
-    return error;
+    KmErrorOr<KeymasterKeyBlob> serialized_key = SerializeAuthEncryptedBlob(
+            *encrypted_key, hw_enforced, sw_enforced);
+    if (!serialized_key) {
+        return serialized_key.error();
+    }
+
+    *blob = std::move(*serialized_key);
+    return KM_ERROR_OK;
 }
 
 keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
@@ -458,7 +463,7 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
         return KM_ERROR_UNEXPECTED_NULL_POINTER;
     }
 
-    DeserializedKey deserialized_key;
+    KmErrorOr<DeserializedKey> deserialized_key;
     if (blob.size() >= kKeystoreKeyBlobPrefixSize &&
         std::equal(kKeystoreKeyBlobMagic.begin(), kKeystoreKeyBlobMagic.end(),
                    blob.begin())) {
@@ -488,8 +493,7 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
             // This is a hardware blob. Strip the prefix and use the blob.
             deserialized_key = DeserializeAuthEncryptedBlob(
                     KeymasterKeyBlob(blob.begin() + kKeystoreKeyBlobPrefixSize,
-                                     blob.size() - kKeystoreKeyBlobPrefixSize),
-                    &error);
+                                     blob.size() - kKeystoreKeyBlobPrefixSize));
             break;
 
         default:
@@ -497,16 +501,16 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
             return KM_ERROR_INVALID_KEY_BLOB;
         }
     } else {
-        deserialized_key = DeserializeAuthEncryptedBlob(blob, &error);
+        deserialized_key = DeserializeAuthEncryptedBlob(blob);
     }
 
-    if (error != KM_ERROR_OK) {
-        return error;
+    if (!deserialized_key) {
+        return deserialized_key.error();
     }
 
     LOG_D("Deserialized blob with format: %d",
-          deserialized_key.encrypted_key.format);
-    if (deserialized_key.encrypted_key.format == AES_OCB && !allow_ocb) {
+          deserialized_key->encrypted_key.format);
+    if (deserialized_key->encrypted_key.format == AES_OCB && !allow_ocb) {
         static size_t ocb_count = 0;
         // b/185811713: This is a hack to work around the fact that keystore2
         // doesn't currently handle upgrades of storage key blobs correctly.
@@ -527,22 +531,22 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
     }
 
     LOG_D("Decrypting blob with format: %d",
-          deserialized_key.encrypted_key.format);
-    KeymasterKeyBlob key_material =
-            DecryptKey(deserialized_key, hidden, master_key, &error);
-    if (error != KM_ERROR_OK) {
-        return error;
+          deserialized_key->encrypted_key.format);
+    KmErrorOr<KeymasterKeyBlob> key_material =
+            DecryptKey(*deserialized_key, hidden, master_key);
+    if (!key_material) {
+        return key_material.error();
     }
 
     keymaster_algorithm_t algorithm;
-    if (!deserialized_key.hw_enforced.GetTagValue(TAG_ALGORITHM, &algorithm)) {
+    if (!deserialized_key->hw_enforced.GetTagValue(TAG_ALGORITHM, &algorithm)) {
         return KM_ERROR_INVALID_KEY_BLOB;
     }
 
     auto factory = GetKeyFactory(algorithm);
-    return factory->LoadKey(move(key_material), additional_params,
-                            move(deserialized_key.hw_enforced),
-                            move(deserialized_key.sw_enforced), key);
+    return factory->LoadKey(std::move(*key_material), additional_params,
+                            std::move(deserialized_key->hw_enforced),
+                            std::move(deserialized_key->sw_enforced), key);
 }
 
 keymaster_error_t TrustyKeymasterContext::AddRngEntropy(const uint8_t* buf,

@@ -96,7 +96,7 @@ MODULE_INCLUDES += \
 
 MODULE_CPPFLAGS := -fno-short-enums
 
-MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__
+MODULE_COMPILEFLAGS := -U__ANDROID__ -D__TRUSTY__ -std=c++17
 
 # Set to true to fallback to soft_attestation_cert if not provisioned.
 # Note that KeyMint1 does not mandate factory provisioning, so the SW
