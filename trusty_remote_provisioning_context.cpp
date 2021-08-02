@@ -17,25 +17,27 @@
 #include "trusty_remote_provisioning_context.h"
 
 #include <assert.h>
-#include <algorithm>
-
 #include <keymaster/cppcose/cppcose.h>
 #include <keymaster/logger.h>
+#include <lib/hwbcc/client/hwbcc.h>
 #include <lib/hwkey/hwkey.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <openssl/hkdf.h>
 #include <openssl/rand.h>
+#include <algorithm>
 
 #include "keymaster_attributes.pb.h"
 #include "secure_storage_manager.h"
 
 namespace keymaster {
 
+using cppcose::ALGORITHM;
 using cppcose::constructCoseSign1;
 using cppcose::CoseKey;
 using cppcose::ED25519;
 using cppcose::EDDSA;
+using cppcose::ErrMsgOr;
 using cppcose::OCTET_KEY_PAIR;
 using cppcose::VERIFY;
 
@@ -43,12 +45,6 @@ constexpr uint32_t kMacKeyLength = 32;
 
 static const uint8_t kMasterKeyDerivationData[kMacKeyLength] =
         "RemoteKeyProvisioningMasterKey";
-
-TrustyRemoteProvisioningContext::TrustyRemoteProvisioningContext() {
-    std::tie(devicePrivKey_, bcc_) = GenerateBcc(false /* testMode */);
-}
-
-TrustyRemoteProvisioningContext::~TrustyRemoteProvisioningContext() {}
 
 std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
         const std::string& context,
@@ -141,43 +137,31 @@ std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo()
     return result;
 }
 
-std::pair<std::vector<uint8_t> /* privKey */, cppbor::Array /* BCC */>
-TrustyRemoteProvisioningContext::GenerateBcc(bool testMode) const {
-    std::vector<uint8_t> privKey(ED25519_PRIVATE_KEY_LEN);
-    std::vector<uint8_t> pubKey(ED25519_PUBLIC_KEY_LEN);
-
-    uint8_t seed[32];  // Length is hard-coded in the BoringCrypto API
-    if (testMode) {
-        RAND_bytes(seed, sizeof(seed));
-    } else {
-        auto seed_vector = DeriveBytesFromHbk("Device Key Seed", sizeof(seed));
-        std::copy(seed_vector.begin(), seed_vector.end(), seed);
+cppcose::ErrMsgOr<std::vector<uint8_t>>
+TrustyRemoteProvisioningContext::BuildProtectedDataPayload(
+        bool testMode,
+        const std::vector<uint8_t>& macKey,
+        const std::vector<uint8_t>& aad) const {
+    cppbor::Bstr encAad(aad);
+    std::vector<uint8_t> encAadEncoding = encAad.encode();
+    std::vector<uint8_t> signedOutput(HWBCC_MAX_RESP_PAYLOAD_SIZE);
+    std::vector<uint8_t> bcc(HWBCC_MAX_RESP_PAYLOAD_SIZE);
+    size_t actualBccSize = 0;
+    size_t actualSignedMacKeySize = 0;
+    int rc = hwbcc_get_protected_data(
+            testMode, EDDSA, macKey.data(), encAadEncoding.data(),
+            encAadEncoding.size(), signedOutput.data(), signedOutput.size(),
+            &actualSignedMacKeySize, bcc.data(), bcc.size(), &actualBccSize);
+    if (rc != 0) {
+        LOG_E("Error: [%d] Failed to sign the MAC key on WHI", rc);
+        return "Failed to sign the MAC key on WHI";
     }
-    ED25519_keypair_from_seed(pubKey.data(), privKey.data(), seed);
-
-    auto coseKey = cppbor::Map()
-                           .add(CoseKey::KEY_TYPE, OCTET_KEY_PAIR)
-                           .add(CoseKey::ALGORITHM, EDDSA)
-                           .add(CoseKey::CURVE, ED25519)
-                           .add(CoseKey::KEY_OPS, VERIFY)
-                           .add(CoseKey::PUBKEY_X, pubKey)
-                           .canonicalize();
-    auto sign1Payload =
-            cppbor::Map()
-                    .add(1 /* Issuer */, "Issuer")
-                    .add(2 /* Subject */, "Subject")
-                    .add(-4670552 /* Subject Pub Key */, coseKey.encode())
-                    .add(-4670553 /* Key Usage (little-endian order) */,
-                         std::vector<uint8_t>{0x20} /* keyCertSign = 1<<5 */)
-                    .canonicalize()
-                    .encode();
-    auto coseSign1 = constructCoseSign1(privKey,       /* signing key */
-                                        cppbor::Map(), /* extra protected */
-                                        sign1Payload, {} /* AAD */);
-    assert(coseSign1);
-
-    return {privKey,
-            cppbor::Array().add(std::move(coseKey)).add(coseSign1.moveValue())};
+    signedOutput.resize(actualSignedMacKeySize);
+    bcc.resize(actualBccSize);
+    return cppbor::Array()
+            .add(cppbor::EncodedItem(std::move(signedOutput)))
+            .add(cppbor::EncodedItem(std::move(bcc)))
+            .encode();
 }
 
 std::optional<cppcose::HmacSha256>

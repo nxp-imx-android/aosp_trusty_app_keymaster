@@ -38,13 +38,15 @@ struct BootParams {
  */
 class TrustyRemoteProvisioningContext : public RemoteProvisioningContext {
 public:
-    TrustyRemoteProvisioningContext();
-    ~TrustyRemoteProvisioningContext() override;
+    TrustyRemoteProvisioningContext(){};
+    ~TrustyRemoteProvisioningContext() override{};
     std::vector<uint8_t> DeriveBytesFromHbk(const std::string& context,
                                             size_t numBytes) const override;
     std::unique_ptr<cppbor::Map> CreateDeviceInfo() const override;
-    std::pair<std::vector<uint8_t>, cppbor::Array> GenerateBcc(
-            bool testMode) const override;
+    cppcose::ErrMsgOr<std::vector<uint8_t>> BuildProtectedDataPayload(
+            bool testMode,
+            const std::vector<uint8_t>& macKey,
+            const std::vector<uint8_t>& aad) const override;
     std::optional<cppcose::HmacSha256> GenerateHmacSha256(
             const cppcose::bytevec& input) const override;
     void SetBootParams(const BootParams* bootParams);

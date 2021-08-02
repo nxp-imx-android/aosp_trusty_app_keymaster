@@ -137,6 +137,7 @@ MODULE_LIBRARY_DEPS += \
 	trusty/user/base/lib/libc-trusty \
 	trusty/user/base/lib/libstdc++-trusty \
 	trusty/user/base/lib/rng \
+	trusty/user/base/lib/hwbcc/client \
 	trusty/user/base/lib/hwkey \
 	trusty/user/base/lib/hwwsk \
 	trusty/user/base/lib/keybox/client \
