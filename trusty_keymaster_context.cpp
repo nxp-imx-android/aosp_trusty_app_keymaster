@@ -41,7 +41,7 @@
 #include "secure_storage_manager.h"
 #include "trusty_aes_key.h"
 
-constexpr bool kUseSecureDeletion = false;
+constexpr bool kUseSecureDeletion = true;
 
 #ifdef KEYMASTER_DEBUG
 #pragma message \
