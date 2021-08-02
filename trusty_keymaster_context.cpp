@@ -932,18 +932,17 @@ keymaster_error_t TrustyKeymasterContext::SetBootParams(
     boot_params_.device_locked = device_locked;
     boot_params_.verified_boot_key.Reinitialize("", 0);
 
-    // If the device is verified or self signed, load the key (if present)
-    if ((verified_boot_state == KM_VERIFIED_BOOT_VERIFIED) ||
-        (verified_boot_state == KM_VERIFIED_BOOT_SELF_SIGNED)) {
-        if (verified_boot_key.buffer_size()) {
-            boot_params_.verified_boot_key.Reinitialize(verified_boot_key);
-        } else {
-            // If no boot key was passed, default to unverified/unlocked
-            boot_params_.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
-            boot_params_.device_locked = false;
-        }
+    if (verified_boot_key.buffer_size()) {
+        boot_params_.verified_boot_key.Reinitialize(verified_boot_key);
     } else {
-        // If the device image was not signed, it cannot be locked
+        // If no boot key was passed, default to unverified/unlocked
+        boot_params_.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+    }
+
+    if ((verified_boot_state != KM_VERIFIED_BOOT_VERIFIED) &&
+        (verified_boot_state != KM_VERIFIED_BOOT_SELF_SIGNED)) {
+        // If the device image was not verified or self signed, it cannot be
+        // locked
         boot_params_.device_locked = false;
     }
 
