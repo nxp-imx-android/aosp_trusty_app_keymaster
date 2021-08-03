@@ -363,7 +363,7 @@ static bool cmd_is_from_bootloader(uint32_t cmd) {
             cmd == KM_ATAP_SET_CA_RESPONSE_BEGIN ||
             cmd == KM_ATAP_SET_CA_RESPONSE_UPDATE ||
             cmd == KM_ATAP_SET_CA_RESPONSE_FINISH || cmd == KM_ATAP_READ_UUID ||
-            cmd == KM_SET_PRODUCT_ID);
+            cmd == KM_SET_PRODUCT_ID || cmd == KM_CONFIGURE_BOOT_PATCHLEVEL);
 }
 
 // Returns true if |cmd| can be used before the configure command
