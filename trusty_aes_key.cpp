@@ -98,12 +98,22 @@ keymaster_error_t TrustyAesKeyFactory::CreateHwStorageKeyBlob(
                             key_flags, input_key_material.key_material,
                             input_key_material.key_material_size);
     if (rc < 0) {
-        if (rc != ERR_NOT_SUPPORTED) {
-            // Reset IPC connection for any error other then ERR_NOT_SUPPORTED
-            reset_hwwsk_chan();
+        if (rc == ERR_NOT_SUPPORTED &&
+            (key_flags & HWWSK_FLAGS_ROLLBACK_RESISTANCE)) {
+            key_flags &= ~HWWSK_FLAGS_ROLLBACK_RESISTANCE;
+            rc = hwwsk_generate_key(hchan, sk_blob, sizeof(sk_blob), key_size,
+                                    key_flags, input_key_material.key_material,
+                                    input_key_material.key_material_size);
         }
-        LOG_E("HWWSK: generate key blob failed(%d)", rc);
-        return KM_ERROR_UNKNOWN_ERROR;
+        if (rc < 0) {
+            if (rc != ERR_NOT_SUPPORTED) {
+                // Reset IPC connection for any error other then
+                // ERR_NOT_SUPPORTED
+                reset_hwwsk_chan();
+            }
+            LOG_E("HWWSK: generate key blob failed(%d)", rc);
+            return KM_ERROR_UNKNOWN_ERROR;
+        }
     }
 
     KeymasterKeyBlob hwwsk_key_blob(sk_blob, rc);
