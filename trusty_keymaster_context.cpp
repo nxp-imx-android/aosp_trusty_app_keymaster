@@ -42,7 +42,7 @@
 #include "trusty_aes_key.h"
 
 constexpr bool kUseSecureDeletion = true;
-constexpr uint8_t kAllZerosVerifiedBootKey[32] = {};
+uint8_t allZerosOrHashOfVerifiedBootKey[32] = {};
 
 #ifdef KEYMASTER_DEBUG
 #pragma message \
@@ -843,16 +843,26 @@ TrustyKeymasterContext::GetVerifiedBootParams(keymaster_error_t* error) const {
     VerifiedBootParams& vb_parms =
             const_cast<VerifiedBootParams&>(verified_boot_params_);
 
-    if (boot_params_.verified_boot_key.buffer_size()) {
-        vb_parms.verified_boot_key = {
-                boot_params_.verified_boot_key.begin(),
-                boot_params_.verified_boot_key.buffer_size()};
-    } else {
+    if (boot_params_.verified_boot_key.buffer_size() == 0) {
         // If an empty verified boot key was passed by the boot loader, set the
         // verfified boot key in attestation parameters to 32 bytes of all
         // zeros.
-        vb_parms.verified_boot_key = {kAllZerosVerifiedBootKey,
-                                      sizeof(kAllZerosVerifiedBootKey)};
+        vb_parms.verified_boot_key = {allZerosOrHashOfVerifiedBootKey,
+                                      sizeof(allZerosOrHashOfVerifiedBootKey)};
+    } else if (boot_params_.verified_boot_key.buffer_size() > 0 &&
+               boot_params_.verified_boot_key.buffer_size() <= 32) {
+        vb_parms.verified_boot_key = {
+                boot_params_.verified_boot_key.begin(),
+                boot_params_.verified_boot_key.buffer_size()};
+    } else if (boot_params_.verified_boot_key.buffer_size() > 32) {
+        // If the verified boot key itself was passed by the boot loader, set
+        // SHA-256 hash of it to the verified boot key parameter of the
+        // attetation information.
+        vb_parms.verified_boot_key = {
+                SHA256(boot_params_.verified_boot_key.begin(),
+                       boot_params_.verified_boot_key.buffer_size(),
+                       allZerosOrHashOfVerifiedBootKey),
+                SHA256_DIGEST_LENGTH};
     }
 
     vb_parms.verified_boot_hash = {
