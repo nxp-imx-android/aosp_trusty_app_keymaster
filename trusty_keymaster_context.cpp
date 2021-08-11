@@ -532,7 +532,18 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
         return KM_ERROR_OK;
     }
 
-    bool has_secure_deletion = (key->secure_deletion_slot() != 0);
+    bool has_secure_deletion = false;
+    if (key->secure_deletion_slot() != 0) {
+        LOG_D("Upgrading rollback-protected key blob in slot %u",
+              key->secure_deletion_slot());
+        has_secure_deletion = true;
+    }
+    if (!has_secure_deletion &&
+        upgrade_params.Contains(TAG_ROLLBACK_RESISTANCE)) {
+        LOG_D("Upgrading non rollback-protected key, adding rollback protection",
+              0);
+        has_secure_deletion = true;
+    }
 
     std::optional<SecureDeletionData> sdd;
     if (kUseSecureDeletion) {
