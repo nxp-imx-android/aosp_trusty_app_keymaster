@@ -206,6 +206,13 @@ private:
  */
 class StorageSession {
 public:
+    // Error codes used by DeleteFile.
+    enum class Error : uint32_t {
+        OK = 0,
+        NOT_FOUND = 1,
+        UNKNOWN = 2,
+    };
+
     StorageSession(const StorageSession&) = delete;
     StorageSession(StorageSession&& rhs) : session_(rhs.session_) {
         rhs.session_ = STORAGE_INVALID_SESSION;
@@ -277,15 +284,20 @@ public:
     /**
      * Delete a file.
      *
-     * Returns true on success, false on failure.
+     * Returns Error::OK on success, Error::NOT_FOUND, if the file did not
+     * exist, Error::UNKNOWN in any other case.
      */
-    bool DeleteFile(const char* fileName) const {
+    Error DeleteFile(const char* fileName) const {
         int rc = storage_delete_file(session_, fileName, 0 /* opflags */);
         if (rc < 0) {
             LOG_E("Error (%d) deleting file %s", rc, fileName);
-            return false;
+            if (rc == ERR_NOT_FOUND) {
+                return Error::NOT_FOUND;
+            } else {
+                return Error::UNKNOWN;
+            }
         }
-        return true;
+        return Error::OK;
     }
 
     /**
@@ -688,17 +700,24 @@ void TrustySecureDeletionSecretStorage::DeleteAllKeys() const {
         }
         LOG_D("Opened session to delete secrets file.", 0);
 
-        if (!session->DeleteFile(kSecureDeletionSecretFileName)) {
+        auto error = session->DeleteFile(kSecureDeletionSecretFileName);
+        if (error == StorageSession::Error::OK) {
+            LOG_D("Deleted secrets file", 0);
+
+            if (!session->EndTransaction(true /* commit */)) {
+                LOG_E("Failed to commit deletion of secrets file.", 0);
+            }
+            LOG_D("Committed deletion of secrets file.", 0);
+        } else if (error == StorageSession::Error::NOT_FOUND) {
+            // File does not exist, may as well abandon the session.
+            LOG_D("No secrets file existed.", 0);
+        } else {
+            // Assuming transient error. Log and retry.
             LOG_E("Failed to delete secrets file", 0);
             continue;
         }
-        LOG_D("Deleted secrets file", 0);
 
-        if (!session->EndTransaction(true /* commit */)) {
-            LOG_E("Failed to commit deletion of secrets file.", 0);
-        }
-        LOG_D("Committed deletion of secrets file.", 0);
-
+        // Success
         factory_reset_secret_ = {};
         return;
     }
