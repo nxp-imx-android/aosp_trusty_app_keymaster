@@ -30,6 +30,16 @@ namespace keymaster {
 
 namespace {
 
+// Maximum number of attempts to perform a secure storage transaction to read or
+// delete a secure deletion secret.  Because the storageproxy may be restarted
+// while this code is running, it may be necessary to retry.  But because it's
+// unclear exactly what error codes may be returned when the proxy is shut down,
+// we conservatively retry all unexpected errors.  To avoid an infinite loop, we
+// set a limit on the number of retries (though hitting the limit and returning
+// an error will likely break the boot anyway).  Ideally, we should never need
+// more than one retry.  We allow three.
+constexpr size_t kMaxTries = 3;
+
 // Name of the file to store secrets. The "_1" suffix is to allow for new file
 // formats/versions in the future.
 constexpr char kSecureDeletionSecretFileName[] = "SecureDeletionSecrets_1";
@@ -371,7 +381,7 @@ std::optional<uint32_t /* keySlot */> find_empty_slot(const StorageFile& file,
                 filePos == kFactoryResetSecretPos ? kFactoryResetSecretSize : 0;
         for (; blockPos < block->available_read(); blockPos += kSecretSize) {
             uint8_t first_byte = *(block->begin() + blockPos);
-            if ((first_byte & kInUseFlag) == 0) {
+            if ((first_byte & kInUseFlag) == 0 && retval == 0) {
                 static_assert(kBlockSize % kSecretSize == 0 &&
                               kFactoryResetSecretSize % kSecretSize == 0);
                 retval = static_cast<uint32_t>((filePos + blockPos) /
@@ -383,9 +393,29 @@ std::optional<uint32_t /* keySlot */> find_empty_slot(const StorageFile& file,
     return retval;
 }
 
+// Helper class that calls the provided function (probably a lambda) on
+// destruction if not disarmed.
+template <typename F>
+class OnExit {
+public:
+    OnExit(F f) : f_(f) {}
+    ~OnExit() {
+        if (!disarmed_) {
+            f_();
+        }
+    }
+
+    void disarm() { disarmed_ = true; }
+
+private:
+    F f_;
+    bool disarmed_ = false;
+};
+
 }  // namespace
 
-bool TrustySecureDeletionSecretStorage::LoadOrCreateFactoryResetSecret() const {
+bool TrustySecureDeletionSecretStorage::LoadOrCreateFactoryResetSecret(
+        bool wait_for_port) const {
     if (factory_reset_secret_) {
         // Already read.
         return true;
@@ -393,7 +423,7 @@ bool TrustySecureDeletionSecretStorage::LoadOrCreateFactoryResetSecret() const {
 
     LOG_D("Trying to open a session to read factory reset secret", 0);
     std::optional<StorageSession> session =
-            StorageSession::CreateSession(false /* waitForPort */);
+            StorageSession::CreateSession(wait_for_port);
     if (!session) {
         return false;
     }
@@ -468,7 +498,8 @@ bool TrustySecureDeletionSecretStorage::LoadOrCreateFactoryResetSecret() const {
 std::optional<SecureDeletionData>
 TrustySecureDeletionSecretStorage::CreateDataForNewKey(bool secure_deletion,
                                                        bool is_upgrade) const {
-    if (!LoadOrCreateFactoryResetSecret() || !factory_reset_secret_) {
+    if (!LoadOrCreateFactoryResetSecret(false /* wait_for_port */) ||
+        !factory_reset_secret_) {
         // Unable to get factory reset secret from secure storage.
         LOG_I("Unable to get factory reset secret", 0);
         return std::nullopt;
@@ -499,96 +530,88 @@ TrustySecureDeletionSecretStorage::CreateDataForNewKey(bool secure_deletion,
     retval.secure_deletion_secret.advance_write(
             retval.secure_deletion_secret.available_write());
 
-    // We have the secret.  We must write it, or block forever trying, unless we
-    // run out of space.  Note that other than running out of space none of the
-    // error cases below should ever happen unless the storage proxy dies, in
-    // which case just trying again should eventually succeed.
+    auto sds_cleanup = OnExit([&]() { retval.secure_deletion_secret.Clear(); });
 
-    for (;;) {
-        std::optional<StorageSession> session =
-                StorageSession::CreateSession();  // Will block
+    std::optional<StorageSession> session =
+            StorageSession::CreateSession();  // Will block
 
-        if (!session) {
-            LOG_E("Failed to open session in CreateDateForNewKey", 0);
-            continue;
-        }
-        LOG_D("Opened session to store secure deletion secret.", 0);
-
-        std::optional<StorageFile> file =
-                session->OpenFile(kSecureDeletionSecretFileName);
-        if (!file) {
-            LOG_E("Failed to open file in CreateDateForNewKey", 0);
-            continue;
-        }
-        LOG_D("Opened file to store secure deletion secret.", 0);
-
-        std::optional<uint32_t> keySlot = find_empty_slot(*file, is_upgrade);
-        if (!keySlot) {
-            LOG_E("Error while searching for key slot", 0);
-            continue;
-        }
-
-        if (*keySlot == 0) {
-            bool can_resize = file->size() < kMaxSecretFileSize ||
-                              (is_upgrade &&
-                               file->size() < kMaxSecretFileSizeForUpgrades);
-
-            if (!can_resize) {
-                LOG_I("Didn't find a slot and can't grow the file larger than %llu",
-                      file->size());
-                return std::nullopt;
-            }
-
-            storage_off_t old_size = file->size();
-            LOG_D("Attempting to resize file from %llu to %llu", file->size(),
-                  file->size() + kBlockSize);
-            int rc = file->Resize(old_size + kBlockSize);
-            if (rc == ERR_TOO_BIG) {
-                // TODO(swillden): Check that this is the error code that
-                // indicates out of space.
-                LOG_I("Out of space in file system, cannot grow file", 0);
-                retval.secure_deletion_secret.Clear();
-                return retval;
-            } else if (rc != NO_ERROR) {
-                LOG_E("Failed (%d) to grow file to make room for a key slot",
-                      rc);
-                continue;
-            }
-            LOG_D("Resized file to %llu", file->size());
-
-            if (!zero_entries(*file, old_size, file->size())) {
-                LOG_E("Error zeroing space in extended file", 0);
-                continue;
-            }
-
-            keySlot = old_size / kSecretSize;
-        }
-
-        LOG_D("Writing new deletion secret to key slot %u", *keySlot);
-        if (!file->WriteBlock(*keySlot * kSecretSize,
-                              retval.secure_deletion_secret.peek_read(),
-                              retval.secure_deletion_secret.available_read())) {
-            LOG_E("Failed to write new deletion secret to key slot %u",
-                  *keySlot);
-            continue;
-        }
-
-        if (!session->EndTransaction(true /* commit */)) {
-            LOG_E("Failed to commit transaction writing new deletion secret to slot %u",
-                  *keySlot);
-            continue;
-        }
-        LOG_D("Committed new secret.", 0);
-
-        retval.key_slot = *keySlot;
+    if (!session) {
+        LOG_E("Failed to open session in CreateDateForNewKey", 0);
         return retval;
     }
+    LOG_D("Opened session to store secure deletion secret.", 0);
+
+    std::optional<StorageFile> file =
+            session->OpenFile(kSecureDeletionSecretFileName);
+    if (!file) {
+        LOG_E("Failed to open file in CreateDateForNewKey", 0);
+        return retval;
+    }
+    LOG_D("Opened file to store secure deletion secret.", 0);
+
+    std::optional<uint32_t> keySlot = find_empty_slot(*file, is_upgrade);
+    if (!keySlot) {
+        LOG_E("Error while searching for key slot", 0);
+        return retval;
+    }
+
+    if (*keySlot == 0) {
+        bool can_resize =
+                file->size() < kMaxSecretFileSize ||
+                (is_upgrade && file->size() < kMaxSecretFileSizeForUpgrades);
+
+        if (!can_resize) {
+            LOG_I("Didn't find a slot and can't grow the file larger than %llu",
+                  file->size());
+            return retval;
+        }
+
+        storage_off_t old_size = file->size();
+        LOG_D("Attempting to resize file from %llu to %llu", file->size(),
+              file->size() + kBlockSize);
+        int rc = file->Resize(old_size + kBlockSize);
+        if (rc != NO_ERROR) {
+            LOG_E("Failed (%d) to grow file to make room for a key slot", rc);
+            return retval;
+        }
+        LOG_D("Resized file to %llu", file->size());
+
+        if (!zero_entries(*file, old_size, file->size())) {
+            LOG_E("Error zeroing space in extended file", 0);
+            return retval;
+        }
+
+        keySlot = old_size / kSecretSize;
+    }
+
+    LOG_D("Writing new deletion secret to key slot %u", *keySlot);
+    if (!file->WriteBlock(*keySlot * kSecretSize,
+                          retval.secure_deletion_secret.peek_read(),
+                          retval.secure_deletion_secret.available_read())) {
+        LOG_E("Failed to write new deletion secret to key slot %u", *keySlot);
+        return retval;
+    }
+
+    if (!session->EndTransaction(true /* commit */)) {
+        LOG_E("Failed to commit transaction writing new deletion secret to slot %u",
+              *keySlot);
+        return retval;
+    }
+    LOG_D("Committed new secret.", 0);
+
+    sds_cleanup.disarm();  // Secure deletion secret written; no need to wipe.
+    retval.key_slot = *keySlot;
+    return retval;
 }
 
 SecureDeletionData TrustySecureDeletionSecretStorage::GetDataForKey(
         const uint32_t key_slot) const {
-    while (!factory_reset_secret_) {
-        LoadOrCreateFactoryResetSecret();
+    for (size_t tries = 0; tries < kMaxTries && !factory_reset_secret_;
+         ++tries) {
+        LoadOrCreateFactoryResetSecret(true /* waitForPort */);
+    }
+    if (!factory_reset_secret_) {
+        return SecureDeletionData{};
     }
 
     SecureDeletionData retval;
@@ -603,19 +626,18 @@ SecureDeletionData TrustySecureDeletionSecretStorage::GetDataForKey(
 
     LOG_D("Need to read secure deletion secret from slot %u", retval.key_slot);
 
-    for (;;) {
+    for (size_t tries = 0; tries < kMaxTries; ++tries) {
         std::optional<StorageSession> session =
                 StorageSession::CreateSession();  // Will block
         if (!session) {
-            LOG_E("Failed to open session to retrieve secure deletion data.",
-                  0);
+            LOG_E("Failed to open session to get secure deletion data.", 0);
             continue;
         }
 
         std::optional<StorageFile> file =
                 session->OpenFile(kSecureDeletionSecretFileName);
         if (!file) {
-            LOG_E("Failed to open file to retrieve secure deletion data.", 0);
+            LOG_E("Failed to open file to get secure deletion data.", 0);
             continue;
         }
 
@@ -635,11 +657,13 @@ SecureDeletionData TrustySecureDeletionSecretStorage::GetDataForKey(
             continue;
         }
 
-        LOG_D("Read secure deletion secret, size %zu",
+        LOG_D("Read secure deletion secret, size: %zu",
               secret->available_read());
         retval.secure_deletion_secret = std::move(*secret);
-        return retval;
+        break;
     }
+
+    return retval;
 }
 
 void TrustySecureDeletionSecretStorage::DeleteKey(uint32_t key_slot) const {

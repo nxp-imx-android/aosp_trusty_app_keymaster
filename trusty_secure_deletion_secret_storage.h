@@ -38,7 +38,7 @@ public:
     void DeleteAllKeys() const override;
 
 private:
-    bool LoadOrCreateFactoryResetSecret() const;
+    bool LoadOrCreateFactoryResetSecret(bool wait_for_port) const;
 
     // Holds the factory reset secret.  If not std::nullopt, also indicates that
     // secure storage has been read successfully at least once.
