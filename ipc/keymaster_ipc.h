@@ -26,7 +26,7 @@ constexpr uint32_t KEYMASTER_STOP_BIT = 2;
 constexpr uint32_t KEYMASTER_REQ_SHIFT = 2;
 
 // Commands
-enum keymaster_command {
+enum keymaster_command : uint32_t {
     KM_GENERATE_KEY = (0 << KEYMASTER_REQ_SHIFT),
     KM_BEGIN_OPERATION = (1 << KEYMASTER_REQ_SHIFT),
     KM_UPDATE_OPERATION = (2 << KEYMASTER_REQ_SHIFT),
