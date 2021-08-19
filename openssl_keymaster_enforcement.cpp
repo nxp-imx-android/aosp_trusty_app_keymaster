@@ -85,35 +85,7 @@ namespace {
 
 DEFINE_OPENSSL_OBJECT_POINTER(HMAC_CTX);
 
-// Helpers for converting types to keymaster_blob_t, for easy feeding of
-// hmacSha256.
-template <typename T>
-inline keymaster_blob_t toBlob(const T& t) {
-    return {reinterpret_cast<const uint8_t*>(&t), sizeof(t)};
-}
-inline keymaster_blob_t toBlob(const char* str) {
-    return {reinterpret_cast<const uint8_t*>(str), strlen(str)};
-}
-
-// Perhaps these shoud be in utils, but the impact of that needs to be
-// considered carefully.  For now, just define it here.
-inline bool operator==(const keymaster_blob_t& a, const keymaster_blob_t& b) {
-    if (!a.data_length && !b.data_length)
-        return true;
-    if (!(a.data && b.data))
-        return a.data == b.data;
-    return (a.data_length == b.data_length &&
-            !memcmp(a.data, b.data, a.data_length));
-}
-
-bool operator==(const HmacSharingParameters& a,
-                const HmacSharingParameters& b) {
-    return a.seed == b.seed && !memcmp(a.nonce, b.nonce, sizeof(a.nonce));
-}
-
-}  // namespace
-
-keymaster_error_t OpenSSLKeymasterEnforcement::hmacSha256(const keymaster_key_blob_t& key,
+keymaster_error_t hmacSha256(const keymaster_key_blob_t& key,
                              const keymaster_blob_t data_chunks[],
                              size_t data_chunk_count,
                              KeymasterBlob* output) {
@@ -146,6 +118,34 @@ keymaster_error_t OpenSSLKeymasterEnforcement::hmacSha256(const keymaster_key_bl
 
     return KM_ERROR_OK;
 }
+
+// Helpers for converting types to keymaster_blob_t, for easy feeding of
+// hmacSha256.
+template <typename T>
+inline keymaster_blob_t toBlob(const T& t) {
+    return {reinterpret_cast<const uint8_t*>(&t), sizeof(t)};
+}
+inline keymaster_blob_t toBlob(const char* str) {
+    return {reinterpret_cast<const uint8_t*>(str), strlen(str)};
+}
+
+// Perhaps these shoud be in utils, but the impact of that needs to be
+// considered carefully.  For now, just define it here.
+inline bool operator==(const keymaster_blob_t& a, const keymaster_blob_t& b) {
+    if (!a.data_length && !b.data_length)
+        return true;
+    if (!(a.data && b.data))
+        return a.data == b.data;
+    return (a.data_length == b.data_length &&
+            !memcmp(a.data, b.data, a.data_length));
+}
+
+bool operator==(const HmacSharingParameters& a,
+                const HmacSharingParameters& b) {
+    return a.seed == b.seed && !memcmp(a.nonce, b.nonce, sizeof(a.nonce));
+}
+
+}  // namespace
 
 keymaster_error_t OpenSSLKeymasterEnforcement::ComputeSharedHmac(
         const HmacSharingParametersArray& params_array,

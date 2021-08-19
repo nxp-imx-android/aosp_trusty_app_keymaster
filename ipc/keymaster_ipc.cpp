@@ -370,7 +370,7 @@ static bool cmd_is_from_bootloader(uint32_t cmd) {
             cmd == KM_ATAP_SET_CA_RESPONSE_UPDATE ||
             cmd == KM_ATAP_SET_CA_RESPONSE_FINISH || cmd == KM_ATAP_READ_UUID ||
             cmd == KM_SET_PRODUCT_ID || cmd == KM_GET_MPPUBK ||
-            cmd == KM_VERIFY_SECURE_UNLOCK || cmd == KM_APPEND_ATTESTATION_ID ||
+            cmd == KM_VERIFY_SECURE_UNLOCK ||
             cmd_is_provisioning(cmd));
 }
 
@@ -548,11 +548,6 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         return do_dispatch(&TrustyKeymaster::DeleteAllKeys, msg, payload_size,
                            out, out_size);
 
-    case KM_DESTROY_ATTESTATION_IDS:
-        LOG_D("Dispatching DESTROY_ATTESTATION_IDS, size %d", payload_size);
-        return do_dispatch(&TrustyKeymaster::DestroyAttestationIds, msg, payload_size,
-                           out, out_size);
-
     case KM_SET_BOOT_PARAMS:
         LOG_D("Dispatching SET_BOOT_PARAMS, size %d", payload_size);
         return do_dispatch(&TrustyKeymaster::SetBootParams, msg, payload_size,
@@ -615,11 +610,6 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         LOG_D("Dispatching KM_CLEAR_ATTESTATION_CERT_CHAIN, size %d",
               payload_size);
         return do_dispatch(&TrustyKeymaster::ClearAttestationCertChain, msg,
-                           payload_size, out, out_size);
-
-    case KM_APPEND_ATTESTATION_ID:
-        LOG_D("Dispatch KM_APPEND_ATTESTATION_ID, size %d", payload_size);
-        return do_dispatch(&TrustyKeymaster::AppendAttestationId, msg,
                            payload_size, out, out_size);
 
     default:

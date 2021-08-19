@@ -52,10 +52,3 @@ message AttestationKey {
 message AttestationCert {
   required bytes content = 1 [(nanopb).max_size=2048];
 }
-
-message AttestationID {
-  // hmac_all = HMAC(HBK, hmac_id)
-  optional bytes hmac_all = 1 [(nanopb).max_size=2048];
-  // hmac_id = HMAC(HBK, ID1) || HMAC(HBK, ID2) || ... || HMAC(HBK, IDn)
-  optional bytes hmac_id= 2 [(nanopb).max_size=2048];
-}

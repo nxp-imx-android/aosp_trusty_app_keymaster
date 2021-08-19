@@ -132,12 +132,6 @@ public:
     void AtapSetProductId(const AtapSetProductIdRequest& request,
                           AtapSetProductIdResponse* response);
 
-    // AppendAttestationId sets one single device id
-    void AppendAttestationId(const AppendAttestationIdRequest& request,
-                             AppendAttestationIdResponse* response);
-
-    void DestroyAttestationIds(const DestroyAttestationIdsRequest& request,
-                             DestroyAttestationIdsResponse* response);
     bool ConfigureCalled() {
         return configure_error_ != KM_ERROR_KEYMASTER_NOT_CONFIGURED;
     }

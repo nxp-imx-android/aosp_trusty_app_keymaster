@@ -27,7 +27,6 @@
 #include <keymaster/km_openssl/software_random_source.h>
 
 #include "trusty_keymaster_enforcement.h"
-#include <lib/hwkey/hwkey.h>
 
 namespace keymaster {
 
@@ -119,14 +118,6 @@ public:
             AuthorizationSet* wrapped_key_params,
             keymaster_key_format_t* wrapped_key_format,
             KeymasterKeyBlob* wrapped_key_material) const override;
-
-    keymaster_error_t VerifyAndCopyDeviceIds(
-            const AuthorizationSet& attestation_params,
-            AuthorizationSet* attestation) const override;
-    /**
-     * Load Hardware Bound Key.
-     */
-    static keymaster_error_t LoadHbk(uint8_t *key, uint32_t *key_size);
 
 private:
     bool SeedRngIfNeeded() const;
