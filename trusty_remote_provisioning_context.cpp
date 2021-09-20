@@ -142,16 +142,14 @@ TrustyRemoteProvisioningContext::BuildProtectedDataPayload(
         bool testMode,
         const std::vector<uint8_t>& macKey,
         const std::vector<uint8_t>& aad) const {
-    cppbor::Bstr encAad(aad);
-    std::vector<uint8_t> encAadEncoding = encAad.encode();
     std::vector<uint8_t> signedOutput(HWBCC_MAX_RESP_PAYLOAD_SIZE);
     std::vector<uint8_t> bcc(HWBCC_MAX_RESP_PAYLOAD_SIZE);
     size_t actualBccSize = 0;
     size_t actualSignedMacKeySize = 0;
     int rc = hwbcc_get_protected_data(
-            testMode, EDDSA, macKey.data(), encAadEncoding.data(),
-            encAadEncoding.size(), signedOutput.data(), signedOutput.size(),
-            &actualSignedMacKeySize, bcc.data(), bcc.size(), &actualBccSize);
+            testMode, EDDSA, macKey.data(), aad.data(), aad.size(),
+            signedOutput.data(), signedOutput.size(), &actualSignedMacKeySize,
+            bcc.data(), bcc.size(), &actualBccSize);
     if (rc != 0) {
         LOG_E("Error: [%d] Failed to sign the MAC key on WHI", rc);
         return "Failed to sign the MAC key on WHI";
