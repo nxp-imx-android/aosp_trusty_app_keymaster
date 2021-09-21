@@ -169,4 +169,6 @@ include $(LOCAL_DIR)/ipc/rules.mk
 include make/trusted_app.mk
 
 # Include unit tests
+ifeq (true,$(call TOBOOL,$(TEST_BUILD)))
 include trusty/user/app/keymaster/host_unittest/rules.mk
+endif
