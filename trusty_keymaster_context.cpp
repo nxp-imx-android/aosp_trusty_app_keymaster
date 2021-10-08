@@ -36,6 +36,8 @@
 #include <keymaster/operation.h>
 #include <keymaster/wrapped_key.h>
 
+constexpr uint8_t kAllZerosVerifiedBootKey[32] = {};
+
 #ifdef KEYMASTER_DEBUG
 #pragma message \
         "Compiling with fake Keymaster Root of Trust values! DO NOT SHIP THIS!"
@@ -572,8 +574,14 @@ keymaster_error_t TrustyKeymasterContext::GetVerifiedBootParams(
         keymaster_blob_t* verified_boot_hash,
         keymaster_verified_boot_t* verified_boot_state,
         bool* device_locked) const {
-    verified_boot_key->data = verified_boot_key_.begin();
-    verified_boot_key->data_length = verified_boot_key_.buffer_size();
+
+    if (verified_boot_key_.buffer_size()) {
+        verified_boot_key->data = verified_boot_key_.begin();
+        verified_boot_key->data_length = verified_boot_key_.buffer_size();
+    } else {
+        verified_boot_key->data = kAllZerosVerifiedBootKey;
+        verified_boot_key->data_length = sizeof(kAllZerosVerifiedBootKey);
+    }
     verified_boot_hash->data = verified_boot_hash_.begin();
     verified_boot_hash->data_length = verified_boot_hash_.buffer_size();
     *verified_boot_state = verified_boot_state_;
