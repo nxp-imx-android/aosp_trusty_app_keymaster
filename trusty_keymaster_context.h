@@ -65,6 +65,8 @@ public:
     OperationFactory* GetOperationFactory(
             keymaster_algorithm_t algorithm,
             keymaster_purpose_t purpose) const override;
+    const keymaster_algorithm_t* GetSupportedAlgorithms(
+            size_t* algorithms_count) const override;
 
     const VerifiedBootParams* GetVerifiedBootParams(
             keymaster_error_t* error) const override;

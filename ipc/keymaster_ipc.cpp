@@ -447,6 +447,39 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         return do_dispatch(&TrustyKeymaster::AddRngEntropy, msg, payload_size,
                            out, out_size);
 
+    case KM_GET_SUPPORTED_ALGORITHMS:
+        LOG_D("Dispatching GET_SUPPORTED_ALGORITHMS, size: %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::SupportedAlgorithms, msg,
+                           payload_size, out, out_size);
+
+    case KM_GET_SUPPORTED_BLOCK_MODES:
+        LOG_D("Dispatching GET_SUPPORTED_BLOCK_MODES, size: %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::SupportedBlockModes, msg,
+                           payload_size, out, out_size);
+
+    case KM_GET_SUPPORTED_PADDING_MODES:
+        LOG_D("Dispatching GET_SUPPORTED_PADDING_MODES, size: %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::SupportedPaddingModes, msg,
+                           payload_size, out, out_size);
+
+    case KM_GET_SUPPORTED_DIGESTS:
+        LOG_D("Dispatching GET_SUPPORTED_DIGESTS, size: %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::SupportedDigests, msg,
+                           payload_size, out, out_size);
+
+    case KM_GET_SUPPORTED_IMPORT_FORMATS:
+        LOG_D("Dispatching GET_SUPPORTED_IMPORT_FORMATS, size: %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::SupportedImportFormats, msg,
+                           payload_size, out, out_size);
+
+    case KM_GET_SUPPORTED_EXPORT_FORMATS:
+        LOG_D("Dispatching GET_SUPPORTED_EXPORT_FORMATS, size: %d",
+              payload_size);
+        return do_dispatch(&TrustyKeymaster::SupportedExportFormats, msg,
+                           payload_size, out, out_size);
+
     case KM_GET_KEY_CHARACTERISTICS:
         LOG_D("Dispatching GET_KEY_CHARACTERISTICS, size: %d", payload_size);
         return do_dispatch(&TrustyKeymaster::GetKeyCharacteristics, msg,
@@ -603,16 +636,6 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
               payload_size);
         return do_dispatch(&TrustyKeymaster::ConfigureBootPatchlevel, msg,
                            payload_size, out, out_size);
-
-    case KM_GET_SUPPORTED_ALGORITHMS:
-    case KM_GET_SUPPORTED_BLOCK_MODES:
-    case KM_GET_SUPPORTED_PADDING_MODES:
-    case KM_GET_SUPPORTED_DIGESTS:
-    case KM_GET_SUPPORTED_IMPORT_FORMATS:
-    case KM_GET_SUPPORTED_EXPORT_FORMATS:
-        // Obsolete, not implemented:
-        LOG_E("Unsupported command %d", msg->cmd);
-        return ERR_NOT_IMPLEMENTED;
     }
 
     LOG_E("Cannot dispatch unknown command %d", msg->cmd);

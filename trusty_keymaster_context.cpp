@@ -134,6 +134,16 @@ const KeyFactory* TrustyKeymasterContext::GetKeyFactory(
     }
 }
 
+static keymaster_algorithm_t supported_algorithms[] = {
+        KM_ALGORITHM_RSA, KM_ALGORITHM_EC, KM_ALGORITHM_AES, KM_ALGORITHM_HMAC,
+        KM_ALGORITHM_TRIPLE_DES};
+
+const keymaster_algorithm_t* TrustyKeymasterContext::GetSupportedAlgorithms(
+        size_t* algorithms_count) const {
+    *algorithms_count = array_length(supported_algorithms);
+    return supported_algorithms;
+}
+
 OperationFactory* TrustyKeymasterContext::GetOperationFactory(
         keymaster_algorithm_t algorithm,
         keymaster_purpose_t purpose) const {
