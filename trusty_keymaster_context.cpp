@@ -24,6 +24,7 @@
 #include <keymaster/key_blob_utils/ocb_utils.h>
 #include <keymaster/km_openssl/aes_key.h>
 #include <keymaster/km_openssl/asymmetric_key.h>
+#include <keymaster/km_openssl/attestation_record.h>
 #include <keymaster/km_openssl/attestation_utils.h>
 #include <keymaster/km_openssl/certificate_utils.h>
 #include <keymaster/km_openssl/ec_key_factory.h>
@@ -957,6 +958,28 @@ keymaster_error_t TrustyKeymasterContext::VerifyAndCopyDeviceIds(
     }
 
     return KM_ERROR_OK;
+}
+
+Buffer TrustyKeymasterContext::GenerateUniqueId(
+        uint64_t creation_date_time,
+        const keymaster_blob_t& application_id,
+        bool reset_since_rotation,
+        keymaster_error_t* error) const {
+    if (unique_id_hbk_.empty()) {
+        KeymasterKeyBlob hbk;
+        keymaster_error_t derive_error =
+                enforcement_policy_.GetUniqueIdKey(&hbk);
+        if (derive_error != KM_ERROR_OK) {
+            LOG_E("Failed to derive unique ID HBK: %d", derive_error);
+            *error = derive_error;
+            return {};
+        }
+        unique_id_hbk_ = std::vector(hbk.begin(), hbk.end());
+    }
+
+    *error = KM_ERROR_OK;
+    return keymaster::generate_unique_id(unique_id_hbk_, creation_date_time,
+                                         application_id, reset_since_rotation);
 }
 
 KeymasterKeyBlob TrustyKeymasterContext::GetAttestationKey(

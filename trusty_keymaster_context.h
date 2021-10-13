@@ -108,6 +108,11 @@ public:
             const AuthorizationSet& attestation_params,
             AuthorizationSet* values_to_attest) const override;
 
+    Buffer GenerateUniqueId(uint64_t creation_date_time,
+                            const keymaster_blob_t& application_id,
+                            bool reset_since_rotation,
+                            keymaster_error_t* error) const override;
+
     KeymasterKeyBlob GetAttestationKey(keymaster_algorithm_t algorithm,
                                        keymaster_error_t* error) const override;
 
@@ -244,6 +249,7 @@ private:
             trusty_remote_provisioning_context_;
     std::optional<uint32_t> vendor_patchlevel_;
     std::optional<uint32_t> boot_patchlevel_;
+    mutable std::vector<uint8_t> unique_id_hbk_;
 };
 
 }  // namespace keymaster

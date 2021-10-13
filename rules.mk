@@ -62,6 +62,7 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/ec_key_factory.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ecdsa_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ecdh_operation.cpp \
+	$(KEYMASTER_ROOT)/km_openssl/hmac.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/hmac_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/hmac_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/openssl_err.cpp \

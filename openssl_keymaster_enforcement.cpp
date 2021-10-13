@@ -38,6 +38,12 @@ constexpr const char* kSharedHmacLabel = "KeymasterSharedMac";
 constexpr const char* kMacVerificationString = "Keymaster HMAC Verification";
 constexpr const char* kAuthVerificationLabel = "Auth Verification";
 
+// Size (in bytes) of the HBK used for UNIQUE_ID generation.
+static const int kUniqueIdHbkSize = 32;
+
+// Label used for CKDF derivation of UNIQUE_ID HBK from KAK.
+constexpr const char* kUniqueIdLabel = "UniqueID HBK 32B";
+
 class EvpMdCtx {
 public:
     EvpMdCtx() { EVP_MD_CTX_init(&ctx_); }
@@ -218,7 +224,7 @@ VerifyAuthorizationResponse OpenSSLKeymasterEnforcement::VerifyAuthorization(
 }
 
 keymaster_error_t OpenSSLKeymasterEnforcement::GetKeyAgreementKey(
-        KeymasterKeyBlob* kak) {
+        KeymasterKeyBlob* kak) const {
     uint32_t keySize = kKeyAgreementKeySize;
 
     if (!kak->Reset(keySize)) {
@@ -252,7 +258,7 @@ keymaster_error_t OpenSSLKeymasterEnforcement::GetKeyAgreementKey(
 }
 
 keymaster_error_t OpenSSLKeymasterEnforcement::GetHmacKey(
-            keymaster_key_blob_t* key) {
+        keymaster_key_blob_t* key) const {
     if ((key == nullptr) || (key->key_material == nullptr)) {
         return KM_ERROR_UNEXPECTED_NULL_POINTER;
     }
@@ -267,4 +273,23 @@ keymaster_error_t OpenSSLKeymasterEnforcement::GetHmacKey(
 
     return KM_ERROR_OK;
 }
+
+keymaster_error_t OpenSSLKeymasterEnforcement::GetUniqueIdKey(
+        KeymasterKeyBlob* key) const {
+    // Derive a unique ID HBK from the key agreement key.
+    KeymasterKeyBlob kak;
+    keymaster_error_t kakError = GetKeyAgreementKey(&kak);
+    if (kakError != KM_ERROR_OK) {
+        return kakError;
+    }
+    if (!key->Reset(kUniqueIdHbkSize)) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
+
+    return ckdf(move(kak),
+                KeymasterBlob(reinterpret_cast<const uint8_t*>(kUniqueIdLabel),
+                              strlen(kUniqueIdLabel)),
+                nullptr, 0, key);
+}
+
 }  // namespace keymaster

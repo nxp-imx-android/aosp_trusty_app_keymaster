@@ -50,11 +50,12 @@ public:
             KeymasterBlob* sharingCheck) override;
     VerifyAuthorizationResponse VerifyAuthorization(
             const VerifyAuthorizationRequest& request) override;
-    keymaster_error_t GetHmacKey(keymaster_key_blob_t* key);
+    keymaster_error_t GetHmacKey(keymaster_key_blob_t* key) const;
+    keymaster_error_t GetUniqueIdKey(KeymasterKeyBlob* key) const;
 
 private:
     static const size_t kKeyAgreementKeySize = TRUSTY_KM_KAK_SIZE;
-    keymaster_error_t GetKeyAgreementKey(KeymasterKeyBlob* kak);
+    keymaster_error_t GetKeyAgreementKey(KeymasterKeyBlob* kak) const;
     bool have_saved_params_ = false;
     HmacSharingParameters saved_params_;
     KeymasterKeyBlob hmac_key_;
