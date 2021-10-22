@@ -75,20 +75,6 @@ static void keymaster_chan_handler(const uevent_t* ev, void* priv);
 
 TrustyKeymaster* device;
 
-class MessageDeleter {
-public:
-    explicit MessageDeleter(handle_t chan, int id) {
-        chan_ = chan;
-        id_ = id;
-    }
-
-    ~MessageDeleter() { put_msg(chan_, id_); }
-
-private:
-    handle_t chan_;
-    int id_;
-};
-
 static long handle_port_errors(const uevent_t* ev) {
     if ((ev->event & IPC_HANDLE_POLL_ERROR) ||
         (ev->event & IPC_HANDLE_POLL_HUP) ||
@@ -689,8 +675,6 @@ static long handle_msg(keymaster_chan_ctx* ctx) {
         return rc;
     }
 
-    MessageDeleter md(chan, msg_inf.id);
-
     // allocate msg_buf, with one extra byte for null-terminator
     keymaster::UniquePtr<uint8_t[]> msg_buf(new uint8_t[msg_inf.len + 1]);
     msg_buf[msg_inf.len] = 0;
@@ -700,6 +684,9 @@ static long handle_msg(keymaster_chan_ctx* ctx) {
     ipc_msg_t msg = {1, &iov, 0, NULL};
 
     rc = read_msg(chan, msg_inf.id, 0, &msg);
+
+    // retire the message (note msg_inf.id becomes invalid after put_msg)
+    put_msg(chan, msg_inf.id);
 
     // fatal error
     if (rc < 0) {
