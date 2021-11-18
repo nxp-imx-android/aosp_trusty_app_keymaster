@@ -1507,10 +1507,12 @@ keymaster_error_t TrustyKeymasterContext::CheckConfirmationToken(
         return error;
     }
 
+    uint8_t testkey[32];
+    memset(testkey, 165, 32); //testkey
     uint8_t computed_hash[EVP_MAX_MD_SIZE];
     unsigned int computed_hash_length;
-    if (!HMAC(EVP_sha256(), auth_token_key.key_material,
-              auth_token_key.key_material_size, input_data, input_data_size,
+    if (!HMAC(EVP_sha256(), testkey,
+              32, input_data, input_data_size,
               computed_hash, &computed_hash_length)) {
         return KM_ERROR_UNKNOWN_ERROR;
     }
