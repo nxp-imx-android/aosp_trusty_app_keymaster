@@ -58,6 +58,7 @@ MODULE_SRCS += \
 	$(KEYMASTER_ROOT)/km_openssl/block_cipher_operation.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/certificate_utils.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ckdf.cpp \
+	$(KEYMASTER_ROOT)/km_openssl/curve25519_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ec_key.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ec_key_factory.cpp \
 	$(KEYMASTER_ROOT)/km_openssl/ecdsa_operation.cpp \
