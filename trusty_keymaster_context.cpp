@@ -42,7 +42,7 @@
 #include "secure_storage_manager.h"
 #include "trusty_aes_key.h"
 
-constexpr bool kUseSecureDeletion = false;
+constexpr bool kUseSecureDeletion = true;
 uint8_t allZerosOrHashOfVerifiedBootKey[32] = {};
 
 #ifdef KEYMASTER_DEBUG
