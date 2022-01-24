@@ -102,19 +102,19 @@ TrustyKeymasterContext::TrustyKeymasterContext()
           rng_initialized_(false),
           calls_since_reseed_(0) {
     LOG_D("Creating TrustyKeymaster", 0);
-    rsa_factory_.reset(
-            new RsaKeyFactory(*this /* blob_maker */, *this /* context */));
-    tdes_factory_.reset(new TripleDesKeyFactory(*this /* blob_maker */,
-                                                *this /* random_source */));
-    ec_factory_.reset(
-            new EcKeyFactory(*this /* blob_maker */, *this /* context */));
-    aes_factory_.reset(new TrustyAesKeyFactory(*this /* blob_maker */,
-                                               *this /* random_source */));
-    hmac_factory_.reset(new HmacKeyFactory(*this /* blob_maker */,
-                                           *this /* random_source */));
+    rsa_factory_.reset(new (std::nothrow) RsaKeyFactory(*this /* blob_maker */,
+                                                        *this /* context */));
+    tdes_factory_.reset(new (std::nothrow) TripleDesKeyFactory(
+            *this /* blob_maker */, *this /* random_source */));
+    ec_factory_.reset(new (std::nothrow) EcKeyFactory(*this /* blob_maker */,
+                                                      *this /* context */));
+    aes_factory_.reset(new (std::nothrow) TrustyAesKeyFactory(
+            *this /* blob_maker */, *this /* random_source */));
+    hmac_factory_.reset(new (std::nothrow) HmacKeyFactory(
+            *this /* blob_maker */, *this /* random_source */));
     boot_params_.verified_boot_key.Reinitialize("Unbound", 7);
     trusty_remote_provisioning_context_.reset(
-            new TrustyRemoteProvisioningContext());
+            new (std::nothrow) TrustyRemoteProvisioningContext());
 }
 
 const KeyFactory* TrustyKeymasterContext::GetKeyFactory(
@@ -772,7 +772,7 @@ bool TrustyKeymasterContext::ShouldReseedRng() const {
 }
 
 bool TrustyKeymasterContext::ReseedRng() {
-    UniquePtr<uint8_t[]> rand_seed(new uint8_t[kRngReseedSize]);
+    UniquePtr<uint8_t[]> rand_seed(new (std::nothrow) uint8_t[kRngReseedSize]);
     memset(rand_seed.get(), 0, kRngReseedSize);
     if (trusty_rng_hw_rand(rand_seed.get(), kRngReseedSize) != 0) {
         LOG_E("Failed to get bytes from HW RNG", 0);

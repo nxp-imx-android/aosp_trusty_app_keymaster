@@ -27,7 +27,7 @@ namespace keymaster {
 
 class TrustyLogger : public Logger {
 public:
-    static void initialize() { set_instance(new TrustyLogger); }
+    static void initialize() { set_instance(new (std::nothrow) TrustyLogger); }
 
     virtual int log_msg(LogLevel level, const char* fmt, va_list args) const {
         if (level < KEYMASTER_LOG_LEVEL) {

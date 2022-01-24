@@ -139,7 +139,8 @@ void TrustyKeymaster::SetWrappedAttestationKey(
      */
     size_t unwrapped_buf_size = request.key_data.buffer_size();
     size_t unwrapped_key_size;
-    std::unique_ptr<uint8_t[]> unwrapped_key(new uint8_t[unwrapped_buf_size]);
+    std::unique_ptr<uint8_t[]> unwrapped_key(
+            new (std::nothrow) uint8_t[unwrapped_buf_size]);
     if (!unwrapped_key) {
         response->error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
         return;

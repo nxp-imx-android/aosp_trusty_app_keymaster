@@ -179,7 +179,7 @@ static long serialize_response(Response& rsp,
                                uint32_t* out_size) {
     *out_size = rsp.SerializedSize();
 
-    out->reset(new uint8_t[*out_size]);
+    out->reset(new (std::nothrow) uint8_t[*out_size]);
     if (out->get() == NULL) {
         *out_size = 0;
         return ERR_NO_MEMORY;
@@ -294,7 +294,7 @@ static long get_auth_token_key(keymaster::UniquePtr<uint8_t[]>* key_buf,
         return ERR_NOT_ENOUGH_BUFFER;
     }
 
-    key_buf->reset(new uint8_t[key.key_material_size]);
+    key_buf->reset(new (std::nothrow) uint8_t[key.key_material_size]);
     if (key_buf->get() == NULL) {
         return ERR_NO_MEMORY;
     }
@@ -640,7 +640,7 @@ static keymaster_chan_ctx* keymaster_ctx_open(handle_t chan,
         return NULL;
     }
 
-    keymaster_chan_ctx* ctx = new keymaster_chan_ctx;
+    keymaster_chan_ctx* ctx = new (std::nothrow) keymaster_chan_ctx;
     if (ctx == NULL) {
         return ctx;
     }
@@ -676,7 +676,8 @@ static long handle_msg(keymaster_chan_ctx* ctx) {
     }
 
     // allocate msg_buf, with one extra byte for null-terminator
-    keymaster::UniquePtr<uint8_t[]> msg_buf(new uint8_t[msg_inf.len + 1]);
+    keymaster::UniquePtr<uint8_t[]> msg_buf(new (std::nothrow)
+                                                    uint8_t[msg_inf.len + 1]);
     msg_buf[msg_inf.len] = 0;
 
     /* read msg content */
@@ -867,7 +868,8 @@ int main(void) {
     long rc;
     uevent_t event;
 
-    device = new TrustyKeymaster(new TrustyKeymasterContext, 16);
+    device = new (std::nothrow)
+            TrustyKeymaster(new (std::nothrow) TrustyKeymasterContext, 16);
 
     TrustyLogger::initialize();
 
