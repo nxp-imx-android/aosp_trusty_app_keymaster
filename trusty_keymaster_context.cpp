@@ -772,14 +772,14 @@ bool TrustyKeymasterContext::ShouldReseedRng() const {
 }
 
 bool TrustyKeymasterContext::ReseedRng() {
-    UniquePtr<uint8_t[]> rand_seed(new (std::nothrow) uint8_t[kRngReseedSize]);
-    memset(rand_seed.get(), 0, kRngReseedSize);
-    if (trusty_rng_hw_rand(rand_seed.get(), kRngReseedSize) != 0) {
+    uint8_t rand_seed[kRngReseedSize];
+    memset(rand_seed, 0, kRngReseedSize);
+    if (trusty_rng_hw_rand(rand_seed, kRngReseedSize) != 0) {
         LOG_E("Failed to get bytes from HW RNG", 0);
         return false;
     }
     LOG_I("Reseeding with %d bytes from HW RNG", kRngReseedSize);
-    trusty_rng_add_entropy(rand_seed.get(), kRngReseedSize);
+    trusty_rng_add_entropy(rand_seed, kRngReseedSize);
 
     rng_initialized_ = true;
     return true;

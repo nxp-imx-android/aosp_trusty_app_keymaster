@@ -348,6 +348,9 @@ keymaster_error_t SecureStorageManager::WriteAtapKeyAndCertsToStorage(
     }
     UniquePtr<AttestationKey> attestation_key(
             new (std::nothrow) AttestationKey(AttestationKey_init_zero));
+    if (attestation_key.get() == nullptr) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
     attestation_key->has_key = true;
     attestation_key->key.size = key_size;
     memcpy(attestation_key->key.bytes, key, key_size);
@@ -519,6 +522,9 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
         const SetAttestationIdsRequest& request) {
     AttestationIds* attestation_ids_p =
             new (std::nothrow) AttestationIds(AttestationIds_init_zero);
+    if (attestation_ids_p == nullptr) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
     UniquePtr<AttestationIds> attestation_ids(attestation_ids_p);
     if (request.brand.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Brand ID too large: %d", request.brand.buffer_size());
@@ -817,6 +823,13 @@ keymaster_error_t SecureStorageManager::TranslateLegacyFormat() {
         // New attribute file exists, nothing to do.
         return KM_ERROR_OK;
     }
+
+    UniquePtr<KeymasterAttributes> km_attributes(new (
+            std::nothrow) KeymasterAttributes(KeymasterAttributes_init_zero));
+    if (km_attributes.get() == nullptr) {
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
+
     AttestationKeySlot key_slots[] = {
             AttestationKeySlot::kRsa,        AttestationKeySlot::kEcdsa,
             AttestationKeySlot::kEddsa,      AttestationKeySlot::kEpid,
@@ -832,6 +845,9 @@ keymaster_error_t SecureStorageManager::TranslateLegacyFormat() {
         AttestationKeySlot key_slot = key_slots[i];
         UniquePtr<AttestationKey> attestation_key(
                 new (std::nothrow) AttestationKey(AttestationKey_init_zero));
+        if (attestation_key.get() == nullptr) {
+            return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+        }
         snprintf(key_file, kStorageIdLengthMax, "%s.%s", kLegacyAttestKeyPrefix,
                  GetKeySlotStr(key_slot));
         err = LegacySecureStorageRead(key_file, attestation_key->key.bytes,
@@ -881,8 +897,6 @@ keymaster_error_t SecureStorageManager::TranslateLegacyFormat() {
         }
     }
 
-    UniquePtr<KeymasterAttributes> km_attributes(new (
-            std::nothrow) KeymasterAttributes(KeymasterAttributes_init_zero));
     uint32_t product_id_size;
     err = LegacySecureStorageRead(kLegacyProductIdFileName,
                                   km_attributes->product_id.bytes,

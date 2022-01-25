@@ -678,6 +678,9 @@ static long handle_msg(keymaster_chan_ctx* ctx) {
     // allocate msg_buf, with one extra byte for null-terminator
     keymaster::UniquePtr<uint8_t[]> msg_buf(new (std::nothrow)
                                                     uint8_t[msg_inf.len + 1]);
+    if (msg_buf.get() == nullptr) {
+        return ERR_NO_MEMORY;
+    }
     msg_buf[msg_inf.len] = 0;
 
     /* read msg content */
