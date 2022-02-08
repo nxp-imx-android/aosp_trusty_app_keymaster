@@ -50,10 +50,19 @@ public:
     std::optional<cppcose::HmacSha256> GenerateHmacSha256(
             const cppcose::bytevec& input) const override;
     void SetBootParams(const BootParams* bootParams);
+    void SetVendorPatchlevel(uint32_t vendor_patchlevel) {
+        vendor_patchlevel_ = vendor_patchlevel;
+    }
+
+    void SetBootPatchlevel(uint32_t boot_patchlevel) {
+        boot_patchlevel_ = boot_patchlevel;
+    }
 
 private:
     bool bootParamsSet_ = false;
     const BootParams* bootParams_ = nullptr;
+    uint32_t vendor_patchlevel_ = 0;
+    uint32_t boot_patchlevel_ = 0;
 };
 
 }  // namespace keymaster

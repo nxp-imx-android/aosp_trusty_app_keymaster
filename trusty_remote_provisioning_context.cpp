@@ -21,6 +21,7 @@
 #include <keymaster/logger.h>
 #include <lib/hwbcc/client/hwbcc.h>
 #include <lib/hwkey/hwkey.h>
+#include <lib/system_state/system_state.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <openssl/hkdf.h>
@@ -128,9 +129,21 @@ std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo()
         }
         result->add("bootloader_state",
                     bootParams_->device_locked ? "locked" : "unlocked");
+        result->add("vbmeta_digest",
+                    cppbor::Bstr(bootParams_->verified_boot_hash.begin(),
+                                 bootParams_->verified_boot_hash.end()));
         result->add("os_version", std::to_string(bootParams_->boot_os_version));
         result->add("system_patch_level",
                     cppbor::Uint(bootParams_->boot_os_patchlevel));
+        result->add("boot_patch_level", cppbor::Uint(boot_patchlevel_));
+        result->add("vendor_patch_level", cppbor::Uint(vendor_patchlevel_));
+        result->add("fused", system_state_get_flag_default(
+                                     SYSTEM_STATE_FLAG_APP_LOADING_UNLOCKED,
+                                     0 /* default */)
+                                     ? 0
+                                     : 1);
+        result->add("security_level", "tee");
+        result->add("version", 2);
     }
 
     result->canonicalize();
@@ -183,4 +196,5 @@ void TrustyRemoteProvisioningContext::SetBootParams(
     bootParamsSet_ = true;
     bootParams_ = bootParams;
 }
+
 }  // namespace keymaster

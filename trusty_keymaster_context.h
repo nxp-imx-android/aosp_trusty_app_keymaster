@@ -167,6 +167,8 @@ public:
             return KM_ERROR_INVALID_ARGUMENT;
         }
         vendor_patchlevel_ = vendor_patchlevel;
+        trusty_remote_provisioning_context_->SetVendorPatchlevel(
+                vendor_patchlevel);
         return KM_ERROR_OK;
     }
 
@@ -177,6 +179,7 @@ public:
             return KM_ERROR_INVALID_ARGUMENT;
         }
         boot_patchlevel_ = boot_patchlevel;
+        trusty_remote_provisioning_context_->SetBootPatchlevel(boot_patchlevel);
         return KM_ERROR_OK;
     }
 
