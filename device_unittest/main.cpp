@@ -38,7 +38,6 @@
 #include <keymaster/android_keymaster_utils.h>
 #include "secure_storage_manager.h"
 
-#undef STRINGIFY
 #include "trusty_logger.h"
 
 #define DATA_SIZE 1000
