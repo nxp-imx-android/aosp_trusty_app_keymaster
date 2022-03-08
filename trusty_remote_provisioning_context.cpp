@@ -160,9 +160,9 @@ TrustyRemoteProvisioningContext::BuildProtectedDataPayload(
     size_t actualBccSize = 0;
     size_t actualSignedMacKeySize = 0;
     int rc = hwbcc_get_protected_data(
-            testMode, EDDSA, macKey.data(), aad.data(), aad.size(),
-            signedOutput.data(), signedOutput.size(), &actualSignedMacKeySize,
-            bcc.data(), bcc.size(), &actualBccSize);
+            testMode, EDDSA, macKey.data(), macKey.size(), aad.data(),
+            aad.size(), signedOutput.data(), signedOutput.size(),
+            &actualSignedMacKeySize, bcc.data(), bcc.size(), &actualBccSize);
     if (rc != 0) {
         LOG_E("Error: [%d] Failed to sign the MAC key on WHI", rc);
         return "Failed to sign the MAC key on WHI";
