@@ -204,8 +204,9 @@ private:
     keymaster_error_t BuildHiddenAuthorizations(
             const AuthorizationSet& input_set,
             AuthorizationSet* hidden) const;
-    keymaster_error_t DeriveMasterKey(KeymasterKeyBlob* master_key) const;
-
+    keymaster_error_t DeriveMasterKey(KeymasterKeyBlob* master_key,
+                                      const EncryptedKey& enc_key) const;
+    keymaster_error_t GetKdfState(EncryptedKey* info) const;
     KmErrorOr<DeserializedKey> DeserializeKmCompatKeyBlob(
             const KeymasterKeyBlob& blob) const;
     KmErrorOr<DeserializedKey> DeserializeKeyBlob(

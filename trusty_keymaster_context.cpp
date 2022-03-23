@@ -363,6 +363,39 @@ keymaster_error_t TrustyKeymasterContext::BuildHiddenAuthorizations(
     return TranslateAuthorizationSetError(hidden->is_valid());
 }
 
+keymaster_error_t TrustyKeymasterContext::GetKdfState(
+        EncryptedKey* info) const {
+    long rc = hwkey_open();
+    if (rc < 0) {
+        LOG_S("Error failing to open a connection to hwkey: %d", rc);
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+
+    hwkey_session_t session = (hwkey_session_t)rc;
+    struct hwkey_versioned_key_options opt = {
+            .kdf_version = HWKEY_KDF_VERSION_BEST,
+            .shared_key = false,
+            .rollback_version_source = HWKEY_ROLLBACK_COMMITTED_VERSION,
+            .os_rollback_version = HWKEY_ROLLBACK_VERSION_CURRENT,
+            .context = NULL,
+            .context_len = 0,
+            .key = NULL,
+            .key_len = 0,
+    };
+    rc = hwkey_derive_versioned(session, &opt);
+    if (rc < 0) {
+        LOG_S("Error deriving versioned master key: %d", rc);
+        hwkey_close(session);
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    hwkey_close(session);
+    // Any versioned format will put the KDF selection into the correct mode.
+    info->format = AES_GCM_WITH_SW_ENFORCED_VERSIONED;
+    info->kdf_version = opt.kdf_version;
+    info->addl_info = opt.os_rollback_version;
+    return KM_ERROR_OK;
+}
+
 keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
         const AuthorizationSet& key_description,
         const KeymasterKeyBlob& key_material,
@@ -377,27 +410,34 @@ keymaster_error_t TrustyKeymasterContext::CreateAuthEncryptedKeyBlob(
         return error;
 
     KeymasterKeyBlob master_key;
-    error = DeriveMasterKey(&master_key);
+    EncryptedKey info;
+    error = GetKdfState(&info);
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+    error = DeriveMasterKey(&master_key, info);
     if (error != KM_ERROR_OK) {
         return error;
     }
 
     KmErrorOr<EncryptedKey> encrypted_key;
     if (secure_deletion_data) {
-        encrypted_key = EncryptKey(key_material, AES_GCM_WITH_SECURE_DELETION,
-                                   hw_enforced, sw_enforced, hidden,
-                                   *secure_deletion_data, master_key,
-                                   *this /* random */);
+        encrypted_key = EncryptKey(
+                key_material, AES_GCM_WITH_SECURE_DELETION_VERSIONED,
+                hw_enforced, sw_enforced, hidden, *secure_deletion_data,
+                master_key, *this /* random */);
     } else {
-        encrypted_key =
-                EncryptKey(key_material, AES_GCM_WITH_SW_ENFORCED, hw_enforced,
-                           sw_enforced, hidden, SecureDeletionData{},
-                           master_key, *this /* random */);
+        encrypted_key = EncryptKey(
+                key_material, AES_GCM_WITH_SW_ENFORCED_VERSIONED, hw_enforced,
+                sw_enforced, hidden, SecureDeletionData{}, master_key,
+                *this /* random */);
     }
     if (!encrypted_key) {
         return encrypted_key.error();
     }
 
+    encrypted_key->kdf_version = info.kdf_version;
+    encrypted_key->addl_info = info.addl_info;
     KmErrorOr<KeymasterKeyBlob> serialized_key = SerializeAuthEncryptedBlob(
             *encrypted_key, hw_enforced, sw_enforced,
             secure_deletion_data ? secure_deletion_data->key_slot : 0);
@@ -643,7 +683,7 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
           deserialized_key->encrypted_key.format);
 
     KeymasterKeyBlob master_key;
-    error = DeriveMasterKey(&master_key);
+    error = DeriveMasterKey(&master_key, deserialized_key->encrypted_key);
     if (error != KM_ERROR_OK) {
         return error;
     }
@@ -656,7 +696,9 @@ keymaster_error_t TrustyKeymasterContext::ParseKeyBlob(
 
     SecureDeletionData sdd;
     if (deserialized_key->encrypted_key.format ==
-        AES_GCM_WITH_SECURE_DELETION) {
+                AES_GCM_WITH_SECURE_DELETION ||
+        deserialized_key->encrypted_key.format ==
+                AES_GCM_WITH_SECURE_DELETION_VERSIONED) {
         // This key requires secure deletion data.
         sdd = secure_deletion_secret_storage_.GetDataForKey(
                 deserialized_key->key_slot);
@@ -750,7 +792,8 @@ enum DerivationParams {
 };
 
 keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
-        KeymasterKeyBlob* master_key) const {
+        KeymasterKeyBlob* master_key,
+        const EncryptedKey& enc_key) const {
     LOG_D("Deriving master key", 0);
 
     long rc = hwkey_open();
@@ -762,16 +805,36 @@ keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
 
     if (!master_key->Reset(kAesKeySize)) {
         LOG_S("Could not allocate memory for master key buffer", 0);
+        hwkey_close(session);
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
 
-    uint32_t kdf_version = HWKEY_KDF_VERSION_1;
-    rc = hwkey_derive(session, &kdf_version, kMasterKeyDerivationData,
-                      master_key->writable_data(), kAesKeySize);
-
-    if (rc < 0) {
-        LOG_S("Error deriving master key: %d", rc);
-        return KM_ERROR_UNKNOWN_ERROR;
+    if (enc_key.format < AES_GCM_WITH_SW_ENFORCED_VERSIONED) {
+        uint32_t kdf_version = HWKEY_KDF_VERSION_1;
+        rc = hwkey_derive(session, &kdf_version, kMasterKeyDerivationData,
+                          master_key->writable_data(), kAesKeySize);
+        if (rc < 0) {
+            LOG_S("Error deriving legacy master key: %d", rc);
+            hwkey_close(session);
+            return KM_ERROR_UNKNOWN_ERROR;
+        }
+    } else {
+        struct hwkey_versioned_key_options opt = {
+                .kdf_version = enc_key.kdf_version,
+                .shared_key = false,
+                .rollback_version_source = HWKEY_ROLLBACK_COMMITTED_VERSION,
+                .os_rollback_version = enc_key.addl_info,
+                .context = kMasterKeyDerivationData,
+                .context_len = sizeof(kMasterKeyDerivationData),
+                .key = master_key->writable_data(),
+                .key_len = kAesKeySize,
+        };
+        rc = hwkey_derive_versioned(session, &opt);
+        if (rc < 0) {
+            LOG_S("Error deriving versioned master key: %d", rc);
+            hwkey_close(session);
+            return KM_ERROR_UNKNOWN_ERROR;
+        }
     }
 
     hwkey_close(session);
