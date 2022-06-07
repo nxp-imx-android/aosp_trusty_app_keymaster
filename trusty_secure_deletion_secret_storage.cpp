@@ -561,7 +561,7 @@ TrustySecureDeletionSecretStorage::CreateDataForNewKey(bool secure_deletion,
                 (is_upgrade && file->size() < kMaxSecretFileSizeForUpgrades);
 
         if (!can_resize) {
-            LOG_I("Didn't find a slot and can't grow the file larger than %llu",
+            LOG_E("Didn't find a slot and can't grow the file larger than %llu",
                   file->size());
             return retval;
         }

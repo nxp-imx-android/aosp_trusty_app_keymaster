@@ -502,7 +502,9 @@ keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
 
     uint32_t key_slot = sdd ? sdd->key_slot : 0;
     bool has_secure_deletion = key_slot != 0;
-    if (request_rollback_resistance && !has_secure_deletion) {
+    if (request_secure_deletion && !has_secure_deletion) {
+        LOG_E("Secure deletion requested (rollback_resistance:%d, usage_limit:%d) but no slot available!",
+              request_rollback_resistance, request_usage_limit);
         return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
     }
 
