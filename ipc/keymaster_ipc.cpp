@@ -622,6 +622,11 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
               payload_size);
         return do_dispatch(&TrustyKeymaster::ConfigureBootPatchlevel, msg,
                            payload_size, out, out_size);
+
+    case KM_GET_ROOT_OF_TRUST:
+        LOG_D("Dispatching KM_GET_ROOT_OF_TRUST, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::GetRootOfTrust, msg, payload_size,
+                           out, out_size);
     }
 
     LOG_E("Cannot dispatch unknown command %d", msg->cmd);

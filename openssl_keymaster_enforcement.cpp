@@ -135,6 +135,9 @@ inline keymaster_blob_t toBlob(const T& t) {
 inline keymaster_blob_t toBlob(const char* str) {
     return {reinterpret_cast<const uint8_t*>(str), strlen(str)};
 }
+inline keymaster_blob_t toBlob(const std::vector<uint8_t>& data) {
+    return {data.data(), data.size()};
+}
 
 // Perhaps these shoud be in utils, but the impact of that needs to be
 // considered carefully.  For now, just define it here.
@@ -255,6 +258,23 @@ keymaster_error_t OpenSSLKeymasterEnforcement::GetKeyAgreementKey(
     }
 
     return KM_ERROR_OK;
+}
+
+KmErrorOr<std::array<uint8_t, 32>> OpenSSLKeymasterEnforcement::ComputeHmac(
+        const std::vector<uint8_t>& data_to_mac) const {
+    keymaster_blob_t data_chunks[] = {toBlob(data_to_mac)};
+    KeymasterBlob mac;
+    auto error = hmacSha256(hmac_key_, data_chunks, 1, &mac);
+    if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    std::array<uint8_t, 32> retval;
+    if (mac.size() != retval.size()) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    std::copy(mac.begin(), mac.end(), retval.begin());
+    return retval;
 }
 
 keymaster_error_t OpenSSLKeymasterEnforcement::GetHmacKey(

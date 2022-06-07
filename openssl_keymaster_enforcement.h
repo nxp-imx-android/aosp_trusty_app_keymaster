@@ -50,6 +50,8 @@ public:
             KeymasterBlob* sharingCheck) override;
     VerifyAuthorizationResponse VerifyAuthorization(
             const VerifyAuthorizationRequest& request) override;
+    KmErrorOr<std::array<uint8_t, 32>> ComputeHmac(
+            const std::vector<uint8_t>& data_to_mac) const override;
     keymaster_error_t GetHmacKey(keymaster_key_blob_t* key) const;
     keymaster_error_t GetUniqueIdKey(KeymasterKeyBlob* key) const;
 

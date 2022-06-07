@@ -100,6 +100,8 @@ public:
         return &enforcement_policy_;
     }
 
+    AttestationContext* attestation_context() override { return this; }
+
     SecureDeletionSecretStorage* secure_deletion_secret_storage() override {
         return &secure_deletion_secret_storage_;
     }
