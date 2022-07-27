@@ -16,6 +16,8 @@
 
 #include "trusty_aes_key.h"
 
+#include <utility>
+
 #include <assert.h>
 
 #include <keymaster/logger.h>
@@ -206,8 +208,8 @@ keymaster_error_t TrustyAesKeyFactory::LoadKey(
         }
 
         key->reset(new (std::nothrow)
-                           HwStorageKey(move(key_material), move(hw_enforced),
-                                        move(sw_enforced), this));
+                           HwStorageKey(std::move(key_material), std::move(hw_enforced),
+                                        std::move(sw_enforced), this));
         if (!key->get()) {
             return KM_ERROR_MEMORY_ALLOCATION_FAILED;
         }
@@ -218,8 +220,8 @@ keymaster_error_t TrustyAesKeyFactory::LoadKey(
 #endif
     }
 
-    return AesKeyFactory::LoadKey(move(key_material), additional_params,
-                                  move(hw_enforced), move(sw_enforced), key);
+    return AesKeyFactory::LoadKey(std::move(key_material), additional_params,
+                                  std::move(hw_enforced), std::move(sw_enforced), key);
 }
 
 keymaster_error_t HwStorageKey::formatted_key_material(

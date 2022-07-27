@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <keymaster/km_openssl/aes_key.h>
 #include <trusty_ipc.h>
 
@@ -75,9 +77,9 @@ public:
                  AuthorizationSet&& hw_enforced,
                  AuthorizationSet&& sw_enforced,
                  const KeyFactory* key_factory)
-            : AesKey(move(key_material),
-                     move(hw_enforced),
-                     move(sw_enforced),
+            : AesKey(std::move(key_material),
+                     std::move(hw_enforced),
+                     std::move(sw_enforced),
                      key_factory) {}
 
     keymaster_error_t formatted_key_material(keymaster_key_format_t,

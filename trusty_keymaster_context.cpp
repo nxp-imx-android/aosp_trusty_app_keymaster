@@ -17,6 +17,7 @@
 #include "trusty_keymaster_context.h"
 
 #include <array>
+#include <utility>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/contexts/soft_attestation_cert.h>
@@ -1155,7 +1156,7 @@ CertificateChain TrustyKeymasterContext::GenerateAttestation(
     }
 
     return generate_attestation(asymmetric_key, attest_params,
-                                move(attest_key_info), *this, error);
+                                std::move(attest_key_info), *this, error);
 }
 
 CertificateChain TrustyKeymasterContext::GenerateSelfSignedCertificate(
@@ -1297,7 +1298,7 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
 
     AuthorizationSet out_params;
     OperationPtr operation(operation_factory->CreateOperation(
-            move(*wrapping_key), wrapping_key_params, &error));
+            std::move(*wrapping_key), wrapping_key_params, &error));
     if ((operation.get() == NULL) || (error != KM_ERROR_OK)) {
         return error;
     }
@@ -1373,8 +1374,8 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
     }
 
     UniquePtr<Key> aes_transport_key;
-    error = aes_factory->LoadKey(move(transport_key), gcm_params,
-                                 move(transport_key_authorizations),
+    error = aes_factory->LoadKey(std::move(transport_key), gcm_params,
+                                 std::move(transport_key_authorizations),
                                  AuthorizationSet(), &aes_transport_key);
     if (error != KM_ERROR_OK) {
         return error;
@@ -1387,7 +1388,7 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
     }
 
     OperationPtr aes_operation(aes_operation_factory->CreateOperation(
-            move(*aes_transport_key), gcm_params, &error));
+            std::move(*aes_transport_key), gcm_params, &error));
     if ((aes_operation.get() == NULL) || (error != KM_ERROR_OK)) {
         return error;
     }

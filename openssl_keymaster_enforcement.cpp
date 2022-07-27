@@ -18,6 +18,7 @@
 #include "openssl_keymaster_enforcement.h"
 
 #include <assert.h>
+#include <utility>
 
 #include <openssl/cmac.h>
 #include <openssl/evp.h>
@@ -188,7 +189,7 @@ keymaster_error_t OpenSSLKeymasterEnforcement::ComputeSharedHmac(
     if (!hmac_key_.Reset(SHA256_DIGEST_LENGTH))
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     keymaster_error_t error = ckdf(
-            move(kak),
+            std::move(kak),
             KeymasterBlob(reinterpret_cast<const uint8_t*>(kSharedHmacLabel),
                           strlen(kSharedHmacLabel)),
             context_chunks.get(), num_chunks,  //
@@ -306,7 +307,7 @@ keymaster_error_t OpenSSLKeymasterEnforcement::GetUniqueIdKey(
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
 
-    return ckdf(move(kak),
+    return ckdf(std::move(kak),
                 KeymasterBlob(reinterpret_cast<const uint8_t*>(kUniqueIdLabel),
                               strlen(kUniqueIdLabel)),
                 nullptr, 0, key);
