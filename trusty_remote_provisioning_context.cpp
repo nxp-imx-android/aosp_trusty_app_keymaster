@@ -43,6 +43,7 @@ using cppcose::OCTET_KEY_PAIR;
 using cppcose::VERIFY;
 
 constexpr uint32_t kMacKeyLength = 32;
+constexpr uint32_t kRkpVersion = TRUSTY_KM_RKP_VERSION;
 
 static const uint8_t kMasterKeyDerivationData[kMacKeyLength] =
         "RemoteKeyProvisioningMasterKey";
@@ -143,7 +144,7 @@ std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo()
                                      ? 0
                                      : 1);
         result->add("security_level", "tee");
-        result->add("version", 2);
+        result->add("version", kRkpVersion);
     }
 
     result->canonicalize();
@@ -189,10 +190,46 @@ TrustyRemoteProvisioningContext::GenerateHmacSha256(
 
 void TrustyRemoteProvisioningContext::GetHwInfo(
         GetHwInfoResponse* hwInfo) const {
-    hwInfo->version = 2;
+    hwInfo->version = kRkpVersion;
     hwInfo->rpcAuthorName = "Google";
     hwInfo->supportedEekCurve = 2 /* CURVE_25519 */;
-    hwInfo->uniqueId = "Google Trusty Default Implementation";
+    hwInfo->uniqueId = "Google Trusty Implementation";
+}
+
+cppcose::ErrMsgOr<cppbor::Array> TrustyRemoteProvisioningContext::BuildCsr(
+        const std::vector<uint8_t>& challenge,
+        cppbor::Array keysToSign) const {
+    auto deviceInfo = std::move(*CreateDeviceInfo());
+    auto signedDataPayload = cppbor::Array()
+                                     .add(1 /* version */)
+                                     .add("keymint" /* CertificateType */)
+                                     .add(std::move(deviceInfo))
+                                     .add(challenge)
+                                     .add(std::move(keysToSign))
+                                     .encode();
+
+    std::vector<uint8_t> signedData(HWBCC_MAX_RESP_PAYLOAD_SIZE);
+    std::vector<uint8_t> bcc(HWBCC_MAX_RESP_PAYLOAD_SIZE);
+    size_t actualSignedDataSize = 0;
+    size_t actualBccSize = 0;
+
+    int rc = hwbcc_get_protected_data(
+            false /* test_mode */, EDDSA, signedDataPayload.data(),
+            signedDataPayload.size(), NULL, 0, signedData.data(),
+            signedData.size(), &actualSignedDataSize, bcc.data(), bcc.size(),
+            &actualBccSize);
+    if (rc != 0) {
+        LOG_E("Error: [%d] Failed hwbcc_get_protected_data()", rc);
+        return "Failed hwbcc_get_protected_data";
+    }
+    signedData.resize(actualSignedDataSize);
+    bcc.resize(actualBccSize);
+
+    return cppbor::Array()
+            .add(3 /* version */)
+            .add(cppbor::Map() /* UdsCerts */)
+            .add(cppbor::EncodedItem(std::move(bcc)))
+            .add(cppbor::EncodedItem(std::move(signedData)));
 }
 
 void TrustyRemoteProvisioningContext::SetBootParams(

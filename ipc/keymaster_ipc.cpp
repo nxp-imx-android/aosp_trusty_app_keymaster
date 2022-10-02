@@ -611,6 +611,11 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         return do_dispatch(&TrustyKeymaster::GenerateCsr, msg, payload_size,
                            out, out_size);
 
+    case KM_GENERATE_CSR_V2:
+        LOG_D("Dispatching KM_GENERATE_CSR_V2, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::GenerateCsrV2, msg, payload_size,
+                           out, out_size);
+
     case KM_CONFIGURE_VENDOR_PATCHLEVEL:
         LOG_D("Dispatching KM_CONFIGURE_VENDOR_PATCHLEVEL, size %d",
               payload_size);

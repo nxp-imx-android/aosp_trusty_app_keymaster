@@ -165,6 +165,11 @@ MODULE_DEFINES += \
 
 endif
 
+TRUSTY_KM_RKP_VERSION ?= 3
+ifdef TRUSTY_KM_RKP_VERSION
+    MODULE_COMPILEFLAGS += -DTRUSTY_KM_RKP_VERSION=$(TRUSTY_KM_RKP_VERSION)
+endif
+
 include $(LOCAL_DIR)/atap/rules.mk
 include $(LOCAL_DIR)/ipc/rules.mk
 
