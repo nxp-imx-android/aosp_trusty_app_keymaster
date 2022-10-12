@@ -49,6 +49,7 @@ public:
             const std::vector<uint8_t>& aad) const override;
     std::optional<cppcose::HmacSha256> GenerateHmacSha256(
             const cppcose::bytevec& input) const override;
+    void GetHwInfo(GetHwInfoResponse* hwInfo) const override;
     void SetBootParams(const BootParams* bootParams);
     void SetVendorPatchlevel(uint32_t vendor_patchlevel) {
         vendor_patchlevel_ = vendor_patchlevel;

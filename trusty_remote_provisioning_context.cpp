@@ -187,6 +187,14 @@ TrustyRemoteProvisioningContext::GenerateHmacSha256(
     return *result;
 }
 
+void TrustyRemoteProvisioningContext::GetHwInfo(
+        GetHwInfoResponse* hwInfo) const {
+    hwInfo->version = 2;
+    hwInfo->rpcAuthorName = "Google";
+    hwInfo->supportedEekCurve = 2 /* CURVE_25519 */;
+    hwInfo->uniqueId = "Google Trusty Default Implementation";
+}
+
 void TrustyRemoteProvisioningContext::SetBootParams(
         const BootParams* bootParams) {
     if (bootParamsSet_) {
