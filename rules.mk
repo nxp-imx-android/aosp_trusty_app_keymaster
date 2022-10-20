@@ -165,7 +165,9 @@ MODULE_DEFINES += \
 
 endif
 
-TRUSTY_KM_RKP_VERSION ?= 3
+# TODO(b/235265072): Move to RKP v3 once the whole stack is ready.
+# For now, remain on v2 for backwards-compatibility.
+TRUSTY_KM_RKP_VERSION ?= 2
 ifdef TRUSTY_KM_RKP_VERSION
     MODULE_COMPILEFLAGS += -DTRUSTY_KM_RKP_VERSION=$(TRUSTY_KM_RKP_VERSION)
 endif
