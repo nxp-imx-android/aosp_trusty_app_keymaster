@@ -305,6 +305,24 @@ static long get_auth_token_key(keymaster::UniquePtr<uint8_t[]>* key_buf,
     return NO_ERROR;
 }
 
+static long get_device_info(keymaster::UniquePtr<uint8_t[]>* ids_buf,
+                            uint32_t* buf_size) {
+    auto ids = device->GetDeviceInfo();
+
+    if (ids->encodedSize() > KEYMASTER_MAX_BUFFER_LENGTH) {
+        return ERR_NOT_ENOUGH_BUFFER;
+    }
+
+    ids_buf->reset(new (std::nothrow) uint8_t[ids->encodedSize()]);
+    if (ids_buf->get() == NULL) {
+        return ERR_NO_MEMORY;
+    }
+
+    *buf_size = ids->encodedSize();
+    ids->encode(ids_buf->get(), ids_buf->get() + ids->encodedSize());
+    return NO_ERROR;
+}
+
 static long keymaster_dispatch_secure(keymaster_chan_ctx* ctx,
                                       keymaster_message* msg,
                                       uint32_t payload_size,
@@ -313,6 +331,8 @@ static long keymaster_dispatch_secure(keymaster_chan_ctx* ctx,
     switch (msg->cmd) {
     case KM_GET_AUTH_TOKEN_KEY:
         return get_auth_token_key(out, out_size);
+    case KM_GET_DEVICE_INFO:
+        return get_device_info(out, out_size);
     default:
         return ERR_NOT_IMPLEMENTED;
     }

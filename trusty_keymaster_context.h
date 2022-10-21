@@ -96,6 +96,8 @@ public:
 
     keymaster_error_t GetAuthTokenKey(keymaster_key_blob_t* key) const;
 
+    std::unique_ptr<cppbor::Map> GetDeviceIds() const;
+
     KeymasterEnforcement* enforcement_policy() override {
         return &enforcement_policy_;
     }

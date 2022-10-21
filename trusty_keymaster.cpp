@@ -58,6 +58,10 @@ long TrustyKeymaster::GetAuthTokenKey(keymaster_key_blob_t* key) {
     return NO_ERROR;
 }
 
+std::unique_ptr<cppbor::Map> TrustyKeymaster::GetDeviceInfo() {
+    return context_->GetDeviceIds();
+}
+
 void TrustyKeymaster::SetBootParams(const SetBootParamsRequest& request,
                                     SetBootParamsResponse* response) {
     if (response == nullptr)

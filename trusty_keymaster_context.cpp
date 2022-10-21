@@ -1497,4 +1497,11 @@ keymaster_error_t TrustyKeymasterContext::CheckConfirmationToken(
     return KM_ERROR_OK;
 }
 
+std::unique_ptr<cppbor::Map> TrustyKeymasterContext::GetDeviceIds() const {
+    // Use the most up to date version of device info, back compat is
+    // unnecessary here.
+    return trusty_remote_provisioning_context_->CreateDeviceInfo(
+            3 /* csrVersion */);
+}
+
 }  // namespace keymaster

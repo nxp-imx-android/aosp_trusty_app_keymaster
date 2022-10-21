@@ -48,6 +48,9 @@ public:
     // The GetAuthTokenKey IPC call is accepted only from Gatekeeper.
     long GetAuthTokenKey(keymaster_key_blob_t* key);
 
+    // Retrieve the device information needed for remote key provisioning.
+    std::unique_ptr<cppbor::Map> GetDeviceInfo();
+
     // SetBootParams can only be called once. If it is never called then
     // Keymaster will fail to configure. The intention is that it is called from
     // the bootloader.

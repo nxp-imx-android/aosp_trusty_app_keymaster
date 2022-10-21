@@ -85,6 +85,21 @@ std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
     return result;
 }
 
+keymaster_error_t ReadAttestationIds(AttestationIds* ids) {
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        LOG_E("Failed to open secure storage session.", 0);
+        return KM_ERROR_SECURE_HW_BUSY;
+    }
+
+    auto err = ss_manager->ReadAttestationIds(ids);
+    if (err != KM_ERROR_OK) {
+        LOG_E("Failed to read attestation IDs", 0);
+        return err;
+    }
+    return KM_ERROR_OK;
+}
+
 #define ADD_ID_FIELD(array, proto, field_name)                              \
     if ((proto).size > 0) {                                                 \
         (array)->add(                                                       \
@@ -95,17 +110,8 @@ std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
 std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo(
         uint32_t csrVersion) const {
     auto result = std::make_unique<cppbor::Map>();
-
-    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
-    if (ss_manager == nullptr) {
-        LOG_E("Failed to open secure storage session.", 0);
-        return result;
-    }
-
     AttestationIds ids;
-    auto err = ss_manager->ReadAttestationIds(&ids);
-    if (err != KM_ERROR_OK) {
-        LOG_E("Failed to read attestation IDs", 0);
+    if (ReadAttestationIds(&ids) != KM_ERROR_OK) {
         return result;
     }
     ADD_ID_FIELD(result, ids.brand, "brand")
