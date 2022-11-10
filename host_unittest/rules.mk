@@ -21,6 +21,7 @@ HOST_TEST := keymaster_test
 
 HOST_SRCS += \
 	$(KEYMASTER_DIR)/secure_storage_manager.cpp \
+	$(KEYMASTER_DIR)/second_imei_attestation.cpp \
 	$(KEYMASTER_DIR)/host_unittest/main.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/logger.cpp \
 	$(ATAP_DIR)/libatap/atap_util.c \

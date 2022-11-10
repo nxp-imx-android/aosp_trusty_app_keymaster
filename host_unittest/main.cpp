@@ -49,6 +49,7 @@ extern "C" {
 }
 
 #include <keymaster/android_keymaster_utils.h>
+#include "second_imei_attestation.h"
 #include "secure_storage_manager.h"
 
 #define DATA_SIZE 2048
@@ -57,11 +58,13 @@ extern "C" {
 #define TLOG_TAG "km_storage_test"
 
 using keymaster::AttestationKeySlot;
+using keymaster::calculate_luhn_checksum_digit;
 using keymaster::CertificateChain;
 using keymaster::kAttestationUuidSize;
 using keymaster::KeymasterKeyBlob;
 using keymaster::kProductIdSize;
 using keymaster::SecureStorageManager;
+using keymaster::validate_second_imei;
 
 uint8_t* NewRandBuf(size_t size) {
     uint8_t* buf = new uint8_t[size];
@@ -446,6 +449,40 @@ TEST(KeymasterFormatChangeTest, TestFormatChange) {
 }
 #endif
 
+void TestLuhnChecksumCalculation() {
+    ASSERT_EQ(0u, calculate_luhn_checksum_digit(0));
+    ASSERT_EQ(3, calculate_luhn_checksum_digit(7992739871ul));
+    ASSERT_EQ(3, calculate_luhn_checksum_digit(7992739871ul));
+    ASSERT_EQ(6, calculate_luhn_checksum_digit(735423462345ul));
+    ASSERT_EQ(4, calculate_luhn_checksum_digit(721367498765427ul));
+test_abort:;
+}
+
+keymaster_blob_t toBlob(const char* str) {
+    return {reinterpret_cast<const uint8_t*>(str), strlen(str)};
+}
+
+void TestSecondImeiValidation() {
+    // First IMEI used throughout the test
+    const uint64_t first_imei = 721367498765404;
+    // Sequential IMEI
+    const char* second_imei = "721367498765412";
+    // Valid IMEI, but not a sequential one
+    const char* second_imei_not_seq = "721367498765420";
+    // Invalid IMEI, not a sequential one.
+    const char* invalid_imei = "721367498765437";
+    // Invalid IMEI: Sequential to first_imei but the checksum digit is wrong.
+    const char* invalid_seq_imei = "721367498765415";
+    ASSERT_EQ(true, validate_second_imei(toBlob(second_imei), first_imei));
+
+    ASSERT_EQ(false,
+              validate_second_imei(toBlob(second_imei_not_seq), first_imei));
+    ASSERT_EQ(false, validate_second_imei(toBlob(invalid_imei), first_imei));
+    ASSERT_EQ(false,
+              validate_second_imei(toBlob(invalid_seq_imei), first_imei));
+test_abort:;
+}
+
 typedef struct {
 } KeymasterTest_t;
 
@@ -497,6 +534,14 @@ TEST_F(KeymasterTest, TestUuidStorage) {
 
 TEST_F(KeymasterTest, TestProductIdStorage) {
     TestProductIdStorage();
+}
+
+TEST_F(KeymasterTest, TestLuhnChecksumCalculation) {
+    TestLuhnChecksumCalculation();
+}
+
+TEST_F(KeymasterTest, TestSecondImeiValidation) {
+    TestSecondImeiValidation();
 }
 
 #ifndef KEYMASTER_DEBUG

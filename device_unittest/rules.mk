@@ -34,6 +34,7 @@ MANIFEST := $(LOCAL_DIR)/manifest.json
 
 MODULE_SRCS += \
 	$(KEYMASTER_DIR)/secure_storage_manager.cpp \
+	$(KEYMASTER_DIR)/second_imei_attestation.cpp \
 	$(LOCAL_DIR)/main.cpp \
 	$(KEYMASTER_ROOT)/android_keymaster/logger.cpp \
 	$(KEYMASTER_DIR)/keymaster_attributes.pb.c \

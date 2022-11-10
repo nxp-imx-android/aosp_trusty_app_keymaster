@@ -19,6 +19,9 @@
 #include <array>
 #include <utility>
 
+#include <stdlib.h>
+#include <string.h>
+
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/contexts/soft_attestation_cert.h>
 #include <keymaster/key_blob_utils/auth_encrypted_key_blob.h>
@@ -40,6 +43,7 @@
 #include <lib/rng/trusty_rng.h>
 #include <openssl/hmac.h>
 
+#include "second_imei_attestation.h"
 #include "secure_storage_manager.h"
 #include "trusty_aes_key.h"
 
@@ -995,10 +999,26 @@ keymaster_error_t TrustyKeymasterContext::VerifyAndCopyDeviceIds(
             values_to_attest->push_back(entry);
             break;
 
-        case KM_TAG_ATTESTATION_ID_SECOND_IMEI:
-            // TODO: Check that the second IMEI matches.
+        case KM_TAG_ATTESTATION_ID_SECOND_IMEI: {
+#ifndef KEYMASTER_NO_SECOND_IMEI
+            // Typically dual-SIM devices ship with two sequential IMEIs.
+            // As the second IMEI was not provisioned to the KeyMint instance,
+            // it is still possible to attest to the second IMEI by validating
+            // that the second IMEI is the one after the first IMEI, which was
+            // provisoned to the KeyMint instance.
+            std::string imei_str(reinterpret_cast<const char*>(ids.imei.bytes),
+                                 ids.imei.size);
+
+            long imei_numeric = strtol(imei_str.c_str(), NULL, 10);
+            bool second_imei_mismatch =
+                    !validate_second_imei(entry.blob, imei_numeric);
+            if (second_imei_mismatch) {
+                LOG_E("Mismatch in second IMEI.", 0);
+            }
+            found_mismatch |= second_imei_mismatch;
             values_to_attest->push_back(entry);
-            break;
+#endif
+        } break;
 
         case KM_TAG_ATTESTATION_ID_MEID:
             found_mismatch |=

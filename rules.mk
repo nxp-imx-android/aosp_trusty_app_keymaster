@@ -83,6 +83,7 @@ MODULE_SRCS += \
 	$(LOCAL_DIR)/trusty_keymaster_enforcement.cpp \
 	$(LOCAL_DIR)/trusty_remote_provisioning_context.cpp \
 	$(LOCAL_DIR)/trusty_secure_deletion_secret_storage.cpp \
+	$(LOCAL_DIR)/second_imei_attestation.cpp \
 	$(LOCAL_DIR)/secure_storage_manager.cpp \
 	$(LOCAL_DIR)/keymaster_attributes.pb.c \
 	$(NANOPB_DIR)/pb_common.c \
