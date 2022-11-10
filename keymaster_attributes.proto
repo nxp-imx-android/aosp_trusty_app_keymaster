@@ -53,6 +53,7 @@ message AttestationIds {
     optional bytes meid = 6 [(nanopb).max_size=64];
     optional bytes manufacturer = 7 [(nanopb).max_size=64];
     optional bytes model = 8 [(nanopb).max_size=64];
+    optional bytes second_imei = 9 [(nanopb).max_size=64];
 };
 
 message AttestationKey {
