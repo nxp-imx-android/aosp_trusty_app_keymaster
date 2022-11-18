@@ -194,18 +194,22 @@ void TrustyRemoteProvisioningContext::GetHwInfo(
     hwInfo->rpcAuthorName = "Google";
     hwInfo->supportedEekCurve = 2 /* CURVE_25519 */;
     hwInfo->uniqueId = "Google Trusty Implementation";
+    hwInfo->supportedNumKeysInCsr = 20;
 }
 
 cppcose::ErrMsgOr<cppbor::Array> TrustyRemoteProvisioningContext::BuildCsr(
         const std::vector<uint8_t>& challenge,
         cppbor::Array keysToSign) const {
     auto deviceInfo = std::move(*CreateDeviceInfo());
+    auto csrPayload = cppbor::Array()
+                              .add(3 /* version */)
+                              .add("keymint" /* CertificateType */)
+                              .add(std::move(deviceInfo))
+                              .add(std::move(keysToSign))
+                              .encode();
     auto signedDataPayload = cppbor::Array()
-                                     .add(1 /* version */)
-                                     .add("keymint" /* CertificateType */)
-                                     .add(std::move(deviceInfo))
                                      .add(challenge)
-                                     .add(std::move(keysToSign))
+                                     .add(cppbor::Bstr(csrPayload))
                                      .encode();
 
     std::vector<uint8_t> signedData(HWBCC_MAX_RESP_PAYLOAD_SIZE);
@@ -226,7 +230,7 @@ cppcose::ErrMsgOr<cppbor::Array> TrustyRemoteProvisioningContext::BuildCsr(
     bcc.resize(actualBccSize);
 
     return cppbor::Array()
-            .add(3 /* version */)
+            .add(1 /* version */)
             .add(cppbor::Map() /* UdsCerts */)
             .add(cppbor::EncodedItem(std::move(bcc)))
             .add(cppbor::EncodedItem(std::move(signedData)));
