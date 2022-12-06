@@ -27,6 +27,7 @@
 #include <openssl/hkdf.h>
 #include <openssl/rand.h>
 #include <algorithm>
+#include <cstdint>
 
 #include "keymaster_attributes.pb.h"
 #include "secure_storage_manager.h"
@@ -91,8 +92,8 @@ std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
                 cppbor::Tstr((proto).bytes, (proto).bytes + (proto).size)); \
     }
 
-std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo()
-        const {
+std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo(
+        uint32_t csrVersion) const {
     auto result = std::make_unique<cppbor::Map>();
 
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
@@ -144,7 +145,10 @@ std::unique_ptr<cppbor::Map> TrustyRemoteProvisioningContext::CreateDeviceInfo()
                                      ? 0
                                      : 1);
         result->add("security_level", "tee");
-        result->add("version", kRkpVersion);
+        // "version" field was removed from DeviceInfo in CSR v3.
+        if (csrVersion < 3) {
+            result->add("version", csrVersion);
+        }
     }
 
     result->canonicalize();
@@ -200,9 +204,10 @@ void TrustyRemoteProvisioningContext::GetHwInfo(
 cppcose::ErrMsgOr<cppbor::Array> TrustyRemoteProvisioningContext::BuildCsr(
         const std::vector<uint8_t>& challenge,
         cppbor::Array keysToSign) const {
-    auto deviceInfo = std::move(*CreateDeviceInfo());
+    uint32_t csrVersion = 3;
+    auto deviceInfo = std::move(*CreateDeviceInfo(csrVersion));
     auto csrPayload = cppbor::Array()
-                              .add(3 /* version */)
+                              .add(csrVersion)
                               .add("keymint" /* CertificateType */)
                               .add(std::move(deviceInfo))
                               .add(std::move(keysToSign))
