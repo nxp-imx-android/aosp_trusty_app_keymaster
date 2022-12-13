@@ -328,11 +328,21 @@ static long keymaster_dispatch_secure(keymaster_chan_ctx* ctx,
                                       uint32_t payload_size,
                                       keymaster::UniquePtr<uint8_t[]>* out,
                                       uint32_t* out_size) {
+    if (msg->cmd == KM_SET_ATTESTATION_IDS_SECURE &&
+        !keymaster_check_secure_target_access_policy_provisioning(&ctx->uuid)) {
+        LOG_E("Command %d by this UUID is not allowed\n", msg->cmd);
+        return ERR_ACCESS_DENIED;
+    }
+
     switch (msg->cmd) {
     case KM_GET_AUTH_TOKEN_KEY:
         return get_auth_token_key(out, out_size);
     case KM_GET_DEVICE_INFO:
         return get_device_info(out, out_size);
+    case KM_SET_ATTESTATION_IDS_SECURE:
+        LOG_D("Dispatching SET_ATTESTATION_IDS_SECURE, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::SetAttestationIds, msg,
+                           payload_size, out, out_size);
     default:
         return ERR_NOT_IMPLEMENTED;
     }

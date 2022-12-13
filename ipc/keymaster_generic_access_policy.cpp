@@ -51,3 +51,9 @@ bool keymaster_check_target_access_policy(uuid_t* uuid) {
     }
     return false;
 }
+
+bool keymaster_check_secure_target_access_policy_provisioning(
+        const uuid_t* uuid) {
+    /* Not Supported */
+    return false;
+}

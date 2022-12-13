@@ -86,6 +86,15 @@ enum keymaster_command : uint32_t {
  */
 bool keymaster_check_target_access_policy(uuid_t* uuid);
 
+/**
+ * check uuid against the target-specific acesss policy for TAs that can
+ * provision Keymaster.
+ *
+ * @uuid: the uuid of the requesting client
+ */
+bool keymaster_check_secure_target_access_policy_provisioning(
+        const uuid_t* uuid);
+
 #ifdef __ANDROID__
 
 /**
