@@ -25,6 +25,11 @@
 #define TLOG_TAG "KMAccessPolicy"
 #include <trusty_log.h>
 
+/*
+ * Note: This access policy is replicated in
+ * trusty/user/app/keymint/generic_access_policy/lib.rs for Keymint Rust. Any
+ * updates to this access policy should be replicated there as well.
+ */
 static uuid_t accessible_uuids[] = {
         /* gatekeeper uuid */
         {0x38ba0cdc,
