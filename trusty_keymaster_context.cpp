@@ -1000,24 +1000,32 @@ keymaster_error_t TrustyKeymasterContext::VerifyAndCopyDeviceIds(
             break;
 
         case KM_TAG_ATTESTATION_ID_SECOND_IMEI: {
-#ifndef KEYMASTER_NO_SECOND_IMEI
-            // Typically dual-SIM devices ship with two sequential IMEIs.
-            // As the second IMEI was not provisioned to the KeyMint instance,
-            // it is still possible to attest to the second IMEI by validating
-            // that the second IMEI is the one after the first IMEI, which was
-            // provisoned to the KeyMint instance.
-            std::string imei_str(reinterpret_cast<const char*>(ids.imei.bytes),
-                                 ids.imei.size);
+            // Validate directly against storage if it is present.
+            if (ids.second_imei.size > 0) {
+                found_mismatch |= PROTO_BYTES_DOES_NOT_MATCH_BLOB(
+                        entry.blob, ids.second_imei);
+                values_to_attest->push_back(entry);
+            } else {
+#ifndef KEYMASTER_NO_AUTO_SECOND_IMEI
+                // Typically dual-SIM devices ship with two sequential IMEIs.
+                // As the second IMEI was not provisioned to the KeyMint
+                // instance, it is still possible to attest to the second IMEI
+                // by validating that the second IMEI is the one after the first
+                // IMEI, which was provisoned to the KeyMint instance.
+                std::string imei_str(
+                        reinterpret_cast<const char*>(ids.imei.bytes),
+                        ids.imei.size);
 
-            long imei_numeric = strtol(imei_str.c_str(), NULL, 10);
-            bool second_imei_mismatch =
-                    !validate_second_imei(entry.blob, imei_numeric);
-            if (second_imei_mismatch) {
-                LOG_E("Mismatch in second IMEI.", 0);
-            }
-            found_mismatch |= second_imei_mismatch;
-            values_to_attest->push_back(entry);
+                long imei_numeric = strtol(imei_str.c_str(), NULL, 10);
+                bool second_imei_mismatch =
+                        !validate_second_imei(entry.blob, imei_numeric);
+                if (second_imei_mismatch) {
+                    LOG_E("Mismatch in second IMEI.", 0);
+                }
+                found_mismatch |= second_imei_mismatch;
+                values_to_attest->push_back(entry);
 #endif
+            }
         } break;
 
         case KM_TAG_ATTESTATION_ID_MEID:

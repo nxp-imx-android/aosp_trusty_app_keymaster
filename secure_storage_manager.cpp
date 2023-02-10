@@ -518,17 +518,22 @@ keymaster_error_t SecureStorageManager::ReadProductId(
     return KM_ERROR_OK;
 }
 
-keymaster_error_t SecureStorageManager::SetAttestationIds(
+struct AttestationIdResult {
+    keymaster_error_t error;
+    UniquePtr<AttestationIds> ids;
+};
+
+static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
         const SetAttestationIdsRequest& request) {
     AttestationIds* attestation_ids_p =
             new (std::nothrow) AttestationIds(AttestationIds_init_zero);
     if (attestation_ids_p == nullptr) {
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+        return {KM_ERROR_MEMORY_ALLOCATION_FAILED, nullptr};
     }
     UniquePtr<AttestationIds> attestation_ids(attestation_ids_p);
     if (request.brand.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Brand ID too large: %d", request.brand.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.brand.buffer_size() > 0) {
         attestation_ids->has_brand = true;
         attestation_ids->brand.size = request.brand.buffer_size();
@@ -538,7 +543,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
 
     if (request.device.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Device ID too large: %d", request.device.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.device.buffer_size() > 0) {
         attestation_ids->has_device = true;
         attestation_ids->device.size = request.device.buffer_size();
@@ -548,7 +553,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
 
     if (request.product.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Product ID too large: %d", request.product.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.product.buffer_size() > 0) {
         attestation_ids->has_product = true;
         attestation_ids->product.size = request.product.buffer_size();
@@ -559,7 +564,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
     if (request.serial.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Serial number too large: %d",
               request.serial.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.serial.buffer_size() > 0) {
         attestation_ids->has_serial = true;
         attestation_ids->serial.size = request.serial.buffer_size();
@@ -569,7 +574,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
 
     if (request.imei.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: IMEI ID too large: %d", request.imei.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.imei.buffer_size() > 0) {
         attestation_ids->has_imei = true;
         attestation_ids->imei.size = request.imei.buffer_size();
@@ -579,7 +584,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
 
     if (request.meid.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: MEID ID too large: %d", request.meid.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.meid.buffer_size() > 0) {
         attestation_ids->has_meid = true;
         attestation_ids->meid.size = request.meid.buffer_size();
@@ -590,7 +595,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
     if (request.manufacturer.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Manufacturer ID too large: %d",
               request.manufacturer.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.manufacturer.buffer_size() > 0) {
         attestation_ids->has_manufacturer = true;
         attestation_ids->manufacturer.size = request.manufacturer.buffer_size();
@@ -601,15 +606,47 @@ keymaster_error_t SecureStorageManager::SetAttestationIds(
 
     if (request.model.buffer_size() > kAttestationIdLengthMax) {
         LOG_E("Error: Model ID too large: %d", request.model.buffer_size());
-        return KM_ERROR_INVALID_ARGUMENT;
+        return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.model.buffer_size() > 0) {
         attestation_ids->has_model = true;
         attestation_ids->model.size = request.model.buffer_size();
         memcpy(attestation_ids->model.bytes, request.model.begin(),
                request.model.buffer_size());
     }
+    return {KM_ERROR_OK, std::move(attestation_ids)};
+}
 
-    keymaster_error_t err = WriteAttestationIds(attestation_ids.get(), true);
+keymaster_error_t SecureStorageManager::SetAttestationIdsKM3(
+        const SetAttestationIdsKM3Request& request) {
+    auto result = ValidateAndSetBaseAttestationIds(request.base);
+    if (result.error != KM_ERROR_OK) {
+        return result.error;
+    }
+    if (request.second_imei.buffer_size() > kAttestationIdLengthMax) {
+        LOG_E("Error: Second IMEI ID too large: %d",
+              request.second_imei.buffer_size());
+        return KM_ERROR_INVALID_ARGUMENT;
+    } else if (request.second_imei.buffer_size() > 0) {
+        result.ids->has_second_imei = true;
+        result.ids->second_imei.size = request.second_imei.buffer_size();
+        memcpy(result.ids->second_imei.bytes, request.second_imei.begin(),
+               request.second_imei.buffer_size());
+    }
+
+    keymaster_error_t err = WriteAttestationIds(result.ids.get(), true);
+    if (err != KM_ERROR_OK) {
+        CloseSession();
+    }
+    return err;
+}
+
+keymaster_error_t SecureStorageManager::SetAttestationIds(
+        const SetAttestationIdsRequest& request) {
+    auto result = ValidateAndSetBaseAttestationIds(request);
+    if (result.error != KM_ERROR_OK) {
+        return result.error;
+    }
+    keymaster_error_t err = WriteAttestationIds(result.ids.get(), true);
     if (err != KM_ERROR_OK) {
         CloseSession();
     }

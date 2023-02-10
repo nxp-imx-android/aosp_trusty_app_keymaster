@@ -39,7 +39,7 @@ GetVersion2Response TrustyKeymaster::GetVersion2(
         break;
 
     case 4:
-        context_->SetKmVersion(KmVersion::KEYMINT_2);
+        context_->SetKmVersion(KmVersion::KEYMINT_3);
         break;
 
     default:
@@ -123,6 +123,20 @@ void TrustyKeymaster::SetAttestationIds(const SetAttestationIdsRequest& request,
         return;
     }
     response->error = ss_manager->SetAttestationIds(request);
+}
+
+void TrustyKeymaster::SetAttestationIdsKM3(
+        const SetAttestationIdsKM3Request& request,
+        EmptyKeymasterResponse* response) {
+    if (response == nullptr) {
+        return;
+    }
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+    response->error = ss_manager->SetAttestationIdsKM3(request);
 }
 
 void TrustyKeymaster::SetWrappedAttestationKey(

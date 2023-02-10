@@ -73,6 +73,12 @@ public:
     void SetAttestationIds(const SetAttestationIdsRequest& request,
                            EmptyKeymasterResponse* response);
 
+    // SetAttestationIdsKM3 sets the device IDs added to the spec under KM3
+    // This is a factory provisioning step that should not be callable after
+    // provisioning.
+    void SetAttestationIdsKM3(const SetAttestationIdsKM3Request& request,
+                              EmptyKeymasterResponse* response);
+
     // ClearAttestationCertChain clears the attestation certificate chain for
     // the specified algorithm.
     void ClearAttestationCertChain(

@@ -197,6 +197,12 @@ public:
      */
     keymaster_error_t ReadAttestationIds(AttestationIds* attestation_ids_p);
 
+    /* Sets the KeyMint3 Attestation IDs for the device. This function can only
+     * be used once unless Keymaster is in debug mode.
+     */
+    keymaster_error_t SetAttestationIdsKM3(
+            const SetAttestationIdsKM3Request& request);
+
     /**
      * Delete the |product_id|.
      */
