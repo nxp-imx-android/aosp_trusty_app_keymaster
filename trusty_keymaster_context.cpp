@@ -1077,9 +1077,11 @@ Buffer TrustyKeymasterContext::GenerateUniqueId(
         unique_id_hbk_ = std::vector(hbk.begin(), hbk.end());
     }
 
-    *error = KM_ERROR_OK;
-    return keymaster::generate_unique_id(unique_id_hbk_, creation_date_time,
-                                         application_id, reset_since_rotation);
+    Buffer unique_id;
+    *error = keymaster::generate_unique_id(unique_id_hbk_, creation_date_time,
+                                           application_id, reset_since_rotation,
+                                           &unique_id);
+    return unique_id;
 }
 
 KeymasterKeyBlob TrustyKeymasterContext::GetAttestationKey(
