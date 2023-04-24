@@ -106,7 +106,7 @@ TrustyKeymasterContext::TrustyKeymasterContext()
           secure_deletion_secret_storage_(*this /* random_source */),
           rng_initialized_(false),
           calls_since_reseed_(0) {
-    LOG_D("Creating TrustyKeymaster", 0);
+    LOG_D("Creating TrustyKeymaster");
     rsa_factory_.reset(new (std::nothrow) RsaKeyFactory(*this /* blob_maker */,
                                                         *this /* context */));
     tdes_factory_.reset(new (std::nothrow) TripleDesKeyFactory(
@@ -373,7 +373,7 @@ keymaster_error_t TrustyKeymasterContext::GetKdfState(
         EncryptedKey* info) const {
     long rc = hwkey_open();
     if (rc < 0) {
-        LOG_S("Error failing to open a connection to hwkey: %d", rc);
+        LOG_S("Error failing to open a connection to hwkey: %ld", rc);
         return KM_ERROR_UNKNOWN_ERROR;
     }
 
@@ -390,7 +390,7 @@ keymaster_error_t TrustyKeymasterContext::GetKdfState(
     };
     rc = hwkey_derive_versioned(session, &opt);
     if (rc < 0) {
-        LOG_S("Error deriving versioned master key: %d", rc);
+        LOG_S("Error deriving versioned master key: %ld", rc);
         hwkey_close(session);
         return KM_ERROR_UNKNOWN_ERROR;
     }
@@ -488,7 +488,7 @@ keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
     bool request_secure_deletion =
             request_rollback_resistance || request_usage_limit;
 
-    LOG_D("Getting secure deletion data", 0);
+    LOG_D("Getting secure deletion data");
     std::optional<SecureDeletionData> sdd;
     if (kUseSecureDeletion) {
         sdd = secure_deletion_secret_storage_.CreateDataForNewKey(
@@ -501,9 +501,9 @@ keymaster_error_t TrustyKeymasterContext::CreateKeyBlob(
               sdd->factory_reset_secret.buffer_size(),
               sdd->secure_deletion_secret.buffer_size(), sdd->key_slot);
     } else if (!kUseSecureDeletion) {
-        LOG_I("Not using secure deletion", 0);
+        LOG_I("Not using secure deletion");
     } else {
-        LOG_W("Failed to get secure deletion data. storageproxy not up?", 0);
+        LOG_W("Failed to get secure deletion data. storageproxy not up?");
     }
 
     uint32_t key_slot = sdd ? sdd->key_slot : 0;
@@ -545,7 +545,7 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
     UniquePtr<Key> key;
     keymaster_error_t error =
             ParseKeyBlob(key_to_upgrade, upgrade_params, &key);
-    LOG_I("Upgrading key blob", 1);
+    LOG_I("Upgrading key blob");
     if (error != KM_ERROR_OK) {
         return error;
     }
@@ -590,8 +590,7 @@ keymaster_error_t TrustyKeymasterContext::UpgradeKeyBlob(
     }
     if (!has_secure_deletion &&
         upgrade_params.Contains(TAG_ROLLBACK_RESISTANCE)) {
-        LOG_D("Upgrading non rollback-protected key, adding rollback protection",
-              0);
+        LOG_D("Upgrading non rollback-protected key, adding rollback protection");
         has_secure_deletion = true;
     }
 
@@ -649,7 +648,7 @@ KmErrorOr<DeserializedKey> TrustyKeymasterContext::DeserializeKmCompatKeyBlob(
                                  blob.size() - kKeystoreKeyBlobPrefixSize));
 
     case 1:
-        LOG_E("Software key blobs are not supported.", 0);
+        LOG_E("Software key blobs are not supported.");
         return KM_ERROR_INVALID_KEY_BLOB;
 
     default:
@@ -740,7 +739,7 @@ keymaster_error_t TrustyKeymasterContext::DeleteKey(
         const KeymasterKeyBlob& blob) const {
     KmErrorOr<DeserializedKey> deserialized_key = DeserializeKeyBlob(blob);
     if (deserialized_key) {
-        LOG_D("Deserialized blob with format: %d",
+        LOG_D("Deserialized blob with format: %u",
               deserialized_key->encrypted_key.format);
         secure_deletion_secret_storage_.DeleteKey(deserialized_key->key_slot);
     }
@@ -768,12 +767,12 @@ bool TrustyKeymasterContext::SeedRngIfNeeded() const {
 
 bool TrustyKeymasterContext::ShouldReseedRng() const {
     if (!rng_initialized_) {
-        LOG_I("RNG not initalized, reseed", 0);
+        LOG_I("RNG not initialized, reseed");
         return true;
     }
 
     if (++calls_since_reseed_ % kCallsBetweenRngReseeds == 0) {
-        LOG_I("Periodic reseed", 0);
+        LOG_I("Periodic reseed");
         return true;
     }
     return false;
@@ -783,7 +782,7 @@ bool TrustyKeymasterContext::ReseedRng() {
     uint8_t rand_seed[kRngReseedSize];
     memset(rand_seed, 0, kRngReseedSize);
     if (trusty_rng_hw_rand(rand_seed, kRngReseedSize) != 0) {
-        LOG_E("Failed to get bytes from HW RNG", 0);
+        LOG_E("Failed to get bytes from HW RNG");
         return false;
     }
     LOG_I("Reseeding with %d bytes from HW RNG", kRngReseedSize);
@@ -802,7 +801,7 @@ enum DerivationParams {
 keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
         KeymasterKeyBlob* master_key,
         const EncryptedKey& enc_key) const {
-    LOG_D("Deriving master key", 0);
+    LOG_D("Deriving master key");
 
     long rc = hwkey_open();
     if (rc < 0) {
@@ -812,7 +811,7 @@ keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
     hwkey_session_t session = (hwkey_session_t)rc;
 
     if (!master_key->Reset(kAesKeySize)) {
-        LOG_S("Could not allocate memory for master key buffer", 0);
+        LOG_S("Could not allocate memory for master key buffer");
         hwkey_close(session);
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
@@ -822,7 +821,7 @@ keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
         rc = hwkey_derive(session, &kdf_version, kMasterKeyDerivationData,
                           master_key->writable_data(), kAesKeySize);
         if (rc < 0) {
-            LOG_S("Error deriving legacy master key: %d", rc);
+            LOG_S("Error deriving legacy master key: %ld", rc);
             hwkey_close(session);
             return KM_ERROR_UNKNOWN_ERROR;
         }
@@ -839,14 +838,14 @@ keymaster_error_t TrustyKeymasterContext::DeriveMasterKey(
         };
         rc = hwkey_derive_versioned(session, &opt);
         if (rc < 0) {
-            LOG_S("Error deriving versioned master key: %d", rc);
+            LOG_S("Error deriving versioned master key: %ld", rc);
             hwkey_close(session);
             return KM_ERROR_UNKNOWN_ERROR;
         }
     }
 
     hwkey_close(session);
-    LOG_D("Key derivation complete", 0);
+    LOG_D("Key derivation complete");
     return KM_ERROR_OK;
 }
 
@@ -956,7 +955,7 @@ keymaster_error_t TrustyKeymasterContext::VerifyAndCopyDeviceIds(
         AuthorizationSet* values_to_attest) const {
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
     if (ss_manager == nullptr) {
-        LOG_E("Failed to open secure storage session.", 0);
+        LOG_E("Failed to open secure storage session.");
         return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     }
 
@@ -1020,7 +1019,7 @@ keymaster_error_t TrustyKeymasterContext::VerifyAndCopyDeviceIds(
                 bool second_imei_mismatch =
                         !validate_second_imei(entry.blob, imei_numeric);
                 if (second_imei_mismatch) {
-                    LOG_E("Mismatch in second IMEI.", 0);
+                    LOG_E("Mismatch in second IMEI.");
                 }
                 found_mismatch |= second_imei_mismatch;
                 values_to_attest->push_back(entry);
@@ -1105,15 +1104,14 @@ KeymasterKeyBlob TrustyKeymasterContext::GetAttestationKey(
 
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
     if (ss_manager == nullptr) {
-        LOG_E("Failed to open secure storage session.", 0);
+        LOG_E("Failed to open secure storage session.");
         *error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
         return {};
     }
     auto result = ss_manager->ReadKeyFromStorage(key_slot, error);
 #if KEYMASTER_SOFT_ATTESTATION_FALLBACK
     if (*error != KM_ERROR_OK) {
-        LOG_I("Failed to read attestation key from RPMB, falling back to test key",
-              0);
+        LOG_I("Failed to read attestation key from RPMB, falling back to test key");
         auto key = getAttestationKey(algorithm, error);
         if (*error != KM_ERROR_OK) {
             LOG_D("Software attestation key missing: %d", *error);
@@ -1146,15 +1144,14 @@ CertificateChain TrustyKeymasterContext::GetAttestationChain(
     CertificateChain chain;
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
     if (ss_manager == nullptr) {
-        LOG_E("Failed to open secure storage session.", 0);
+        LOG_E("Failed to open secure storage session.");
         *error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     } else {
         *error = ss_manager->ReadCertChainFromStorage(key_slot, &chain);
     }
 #if KEYMASTER_SOFT_ATTESTATION_FALLBACK
     if ((*error != KM_ERROR_OK) || (chain.entry_count == 0)) {
-        LOG_I("Failed to read attestation chain from RPMB, falling back to test chain",
-              0);
+        LOG_I("Failed to read attestation chain from RPMB, falling back to test chain");
         chain = getAttestationChain(algorithm, error);
     }
 #endif
@@ -1262,7 +1259,7 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
         AuthorizationSet* wrapped_key_params,
         keymaster_key_format_t* wrapped_key_format,
         KeymasterKeyBlob* wrapped_key_material) const {
-    LOG_D("UnwrapKey:0", 0);
+    LOG_D("UnwrapKey:0");
 
     keymaster_error_t error = KM_ERROR_OK;
 
@@ -1270,13 +1267,13 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
         return KM_ERROR_UNEXPECTED_NULL_POINTER;
     }
 
-    LOG_D("UnwrapKey:1", 0);
+    LOG_D("UnwrapKey:1");
     // Step 1 from IKeymasterDevice.hal file spec
     // Parse wrapping key
     UniquePtr<Key> wrapping_key;
     error = ParseKeyBlob(wrapping_key_blob, wrapping_key_params, &wrapping_key);
     if (error != KM_ERROR_OK) {
-        LOG_E("Failed to parse wrapping key", 0);
+        LOG_E("Failed to parse wrapping key");
         return error;
     }
 
@@ -1285,32 +1282,32 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
 
     // Check Wrapping Key Purpose
     if (!wrapping_key_auths.Contains(TAG_PURPOSE, KM_PURPOSE_WRAP)) {
-        LOG_E("Wrapping key did not have KM_PURPOSE_WRAP", 0);
+        LOG_E("Wrapping key did not have KM_PURPOSE_WRAP");
         return KM_ERROR_INCOMPATIBLE_PURPOSE;
     }
 
     // Check Padding mode is RSA_OAEP and digest is SHA_2_256 (spec
     // mandated)
     if (!wrapping_key_auths.Contains(TAG_DIGEST, KM_DIGEST_SHA_2_256)) {
-        LOG_E("Wrapping key lacks authorization for SHA2-256", 0);
+        LOG_E("Wrapping key lacks authorization for SHA2-256");
         return KM_ERROR_INCOMPATIBLE_DIGEST;
     }
     if (!wrapping_key_auths.Contains(TAG_PADDING, KM_PAD_RSA_OAEP)) {
-        LOG_E("Wrapping key lacks authorization for padding OAEP", 0);
+        LOG_E("Wrapping key lacks authorization for padding OAEP");
         return KM_ERROR_INCOMPATIBLE_PADDING_MODE;
     }
 
     // Check that that was also the padding mode and digest specified
     if (!wrapping_key_params.Contains(TAG_DIGEST, KM_DIGEST_SHA_2_256)) {
-        LOG_E("Wrapping key must use SHA2-256", 0);
+        LOG_E("Wrapping key must use SHA2-256");
         return KM_ERROR_INCOMPATIBLE_DIGEST;
     }
     if (!wrapping_key_params.Contains(TAG_PADDING, KM_PAD_RSA_OAEP)) {
-        LOG_E("Wrapping key must use OAEP padding", 0);
+        LOG_E("Wrapping key must use OAEP padding");
         return KM_ERROR_INCOMPATIBLE_PADDING_MODE;
     }
 
-    LOG_D("UnwrapKey:2", 0);
+    LOG_D("UnwrapKey:2");
     // Step 2 from IKeymasterDevice.hal spec
     // Parse wrapped key
     KeymasterBlob iv;
@@ -1364,7 +1361,7 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
             output.available_read(),
     };
 
-    LOG_D("UnwrapKey:3", 0);
+    LOG_D("UnwrapKey:3");
     // Step 3 of IKeymasterDevice.hal
     // XOR the transit key with the masking key
     if (transport_key.key_material_size != masking_key.key_material_size) {
@@ -1374,7 +1371,7 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
         transport_key.writable_data()[i] ^= masking_key.key_material[i];
     }
 
-    LOG_D("UnwrapKey:4", 0);
+    LOG_D("UnwrapKey:4");
     // Step 4 of IKeymasterDevice.hal
     // transit_key_authorizations is defined by spec
     // TODO the mac len is NOT in the spec, but probably should be
@@ -1493,7 +1490,7 @@ keymaster_error_t TrustyKeymasterContext::UnwrapKey(
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
 
-    LOG_D("UnwrapKey:Done", 0);
+    LOG_D("UnwrapKey:Done");
     return error;
 }
 

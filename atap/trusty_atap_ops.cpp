@@ -96,7 +96,7 @@ AtapResult TrustyAtapOps::read_product_id(
     if (ss_manager->ReadProductId(product_id) != KM_ERROR_OK) {
         /* If we can't get permanent attributes, set product id to the test
         product id (all zero). */
-        LOG_E("Fail to read product id from storage, set as 0.", 0);
+        LOG_E("Fail to read product id from storage, set as 0.");
         memset(product_id, 0, ATAP_PRODUCT_ID_LEN);
     }
     return ATAP_RESULT_OK;
@@ -137,7 +137,7 @@ AtapResult TrustyAtapOps::read_auth_key_cert_chain(AtapCertChain* cert_chain) {
     AtapKeyType key_type;
     AtapResult atap_result = get_auth_key_type(&key_type);
     if (atap_result != ATAP_RESULT_OK) {
-        LOG_E("Failed to get key type.", 0);
+        LOG_E("Failed to get key type.");
         return atap_result;
     }
     if (key_type == ATAP_KEY_TYPE_NONE) {
@@ -156,8 +156,7 @@ AtapResult TrustyAtapOps::read_auth_key_cert_chain(AtapCertChain* cert_chain) {
         return ATAP_RESULT_ERROR_STORAGE;
     }
     if (cert_chain->entry_count > ATAP_CERT_CHAIN_ENTRIES_MAX) {
-        LOG_E("Stored cert chain length is larger than the maximum cert chain length",
-              0);
+        LOG_E("Stored cert chain length is larger than the maximum cert chain length");
         return ATAP_RESULT_ERROR_CRYPTO;
     }
     return ATAP_RESULT_OK;
@@ -223,7 +222,7 @@ AtapResult TrustyAtapOps::auth_key_sign(const uint8_t* nonce,
     keymaster_error_t result = KM_ERROR_OK;
     AtapResult atap_result = get_auth_key_type(&key_type);
     if (atap_result != ATAP_RESULT_OK) {
-        LOG_E("Failed to get key type", 0);
+        LOG_E("Failed to get key type");
         return atap_result;
     }
     if (key_type == ATAP_KEY_TYPE_NONE) {
@@ -248,19 +247,19 @@ AtapResult TrustyAtapOps::auth_key_sign(const uint8_t* nonce,
     Unique_PKCS8_PRIV_KEY_INFO pkcs8(d2i_PKCS8_PRIV_KEY_INFO(
             NULL, &pkcs_priv_key_p, key_blob.key_material_size));
     if (!pkcs8.get()) {
-        LOG_E("Error parsing pkcs8 format private key.", 0);
+        LOG_E("Error parsing pkcs8 format private key.");
         return ATAP_RESULT_ERROR_INVALID_INPUT;
     }
     Unique_EVP_PKEY pkey(EVP_PKCS82PKEY(pkcs8.get()));
     if (!pkey.get()) {
-        LOG_E("Error parsing pkcs8 private key to EVP_PKEY.", 0);
+        LOG_E("Error parsing pkcs8 private key to EVP_PKEY.");
         return ATAP_RESULT_ERROR_INVALID_INPUT;
     }
 
     Unique_EVP_MD_CTX mdctx(EVP_MD_CTX_create());
 
     if (!mdctx.get()) {
-        LOG_E("Error creating md ctx.", 0);
+        LOG_E("Error creating md ctx.");
         return ATAP_RESULT_ERROR_OOM;
     }
     EVP_PKEY_CTX* evp_pkey_ctx;
@@ -282,8 +281,7 @@ AtapResult TrustyAtapOps::auth_key_sign(const uint8_t* nonce,
         return ATAP_RESULT_ERROR_CRYPTO;
     }
     if (local_sig_len > ATAP_SIGNATURE_LEN_MAX) {
-        LOG_E("Signature length larger than the supported maximum signature length.",
-              0);
+        LOG_E("Signature length larger than the supported maximum signature length.");
         return ATAP_RESULT_ERROR_INVALID_INPUT;
     }
     /* Obtain the signature */

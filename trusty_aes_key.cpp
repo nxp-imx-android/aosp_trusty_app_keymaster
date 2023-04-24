@@ -73,13 +73,13 @@ keymaster_error_t TrustyAesKeyFactory::CreateHwStorageKeyBlob(
     // block mode tag effectively achieves that.
     //
     if (key_description.find(TAG_BLOCK_MODE) != -1) {
-        LOG_E("HWWSK: unsupported tag (%u)", TAG_BLOCK_MODE);
+        LOG_E("HWWSK: unsupported tag");
         return KM_ERROR_UNSUPPORTED_TAG;
     }
 
     // Get requested key size
     if (!key_description.GetTagValue(TAG_KEY_SIZE, &key_size)) {
-        LOG_E("HWWSK: missing key size tag", 0);
+        LOG_E("HWWSK: missing key size tag");
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
     }
 

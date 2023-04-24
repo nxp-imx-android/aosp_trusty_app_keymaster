@@ -203,7 +203,7 @@ void TrustyKeymaster::ClearAttestationCertChain(
 
     keymaster_error_t err = ss_manager->DeleteCertChainFromStorage(key_slot);
     if (err != KM_ERROR_OK) {
-        LOG_E("Failed to delete cert chain.\n", 0);
+        LOG_E("Failed to delete cert chain.\n");
         response->error = err;
         return;
     }
@@ -211,12 +211,12 @@ void TrustyKeymaster::ClearAttestationCertChain(
     uint32_t cert_chain_length = 0;
     err = ss_manager->ReadCertChainLength(key_slot, &cert_chain_length);
     if (err != KM_ERROR_OK) {
-        LOG_E("Failed to read cert chain length.\n", 0);
+        LOG_E("Failed to read cert chain length.\n");
         response->error = err;
         return;
     }
     if (cert_chain_length != 0) {
-        LOG_E("Cert chain could not be deleted.\n", 0);
+        LOG_E("Cert chain could not be deleted.\n");
         response->error = err;
         return;
     }
@@ -258,7 +258,7 @@ void TrustyKeymaster::AppendAttestationCertChain(
     uint32_t cert_chain_length = 0;
     if (ss_manager->ReadCertChainLength(key_slot, &cert_chain_length) !=
         KM_ERROR_OK) {
-        LOG_E("Failed to read cert chain length, initialize to 0.\n", 0);
+        LOG_E("Failed to read cert chain length, initialize to 0.\n");
         cert_chain_length = 0;
     }
     response->error = ss_manager->WriteCertToStorage(key_slot, cert, cert_size,
@@ -350,7 +350,7 @@ void TrustyKeymaster::AtapSetCaResponseFinish(
 #else
     response->error = KM_ERROR_INVALID_INPUT_LENGTH;
     if (ca_response_.available_read() != ca_response_.buffer_size()) {
-        LOG_E("Did not receive full CA Response message: %d / %d\n",
+        LOG_E("Did not receive full CA Response message: %zu / %zu\n",
               ca_response_.available_read(), ca_response_.buffer_size());
         return;
     }

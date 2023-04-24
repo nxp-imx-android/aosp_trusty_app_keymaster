@@ -54,7 +54,7 @@ std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
         size_t num_bytes) const {
     long rc = hwkey_open();
     if (rc < 0) {
-        LOG_S("Couldn't open hwkey session: %d", rc);
+        LOG_S("Couldn't open hwkey session: %ld", rc);
         return {};
     }
 
@@ -66,7 +66,7 @@ std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
                       hw_backed_key.data(), kMacKeyLength);
 
     if (rc < 0) {
-        LOG_S("Error deriving master key: %d", rc);
+        LOG_S("Error deriving master key: %ld", rc);
         return {};
     }
 
@@ -88,13 +88,13 @@ std::vector<uint8_t> TrustyRemoteProvisioningContext::DeriveBytesFromHbk(
 keymaster_error_t ReadAttestationIds(AttestationIds* ids) {
     SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
     if (ss_manager == nullptr) {
-        LOG_E("Failed to open secure storage session.", 0);
+        LOG_E("Failed to open secure storage session.");
         return KM_ERROR_SECURE_HW_BUSY;
     }
 
     auto err = ss_manager->ReadAttestationIds(ids);
     if (err != KM_ERROR_OK) {
-        LOG_E("Failed to read attestation IDs", 0);
+        LOG_E("Failed to read attestation IDs");
         return err;
     }
     return KM_ERROR_OK;
@@ -250,8 +250,7 @@ cppcose::ErrMsgOr<cppbor::Array> TrustyRemoteProvisioningContext::BuildCsr(
 void TrustyRemoteProvisioningContext::SetBootParams(
         const BootParams* bootParams) {
     if (bootParamsSet_) {
-        LOG_E("Boot parameters are already set in the remote provisioning context",
-              0);
+        LOG_E("Boot parameters are already set in the remote provisioning context");
     }
     bootParamsSet_ = true;
     bootParams_ = bootParams;

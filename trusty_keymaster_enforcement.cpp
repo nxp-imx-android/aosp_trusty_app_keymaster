@@ -19,6 +19,8 @@
 #include <openssl/hmac.h>
 #include <trusty/time.h>
 
+#include <inttypes.h>
+
 #include <hardware/hw_auth_token.h>
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/km_openssl/openssl_err.h>
@@ -80,7 +82,8 @@ uint64_t TrustyKeymasterEnforcement::milliseconds_since_boot() const {
     int64_t secure_time_ns = 0;
     rv = trusty_gettime(0, &secure_time_ns);
     if (rv || secure_time_ns < 0) {
-        LOG_S("Error getting time. Error: %d, time: %lld", rv, secure_time_ns);
+        LOG_S("Error getting time. Error: %d, time: %" PRId64, rv,
+              secure_time_ns);
         secure_time_ns =
                 0xFFFFFFFFFFFFFFFFL;  // UINT64_MAX isn't defined (b/22120972)
     }

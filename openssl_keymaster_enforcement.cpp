@@ -18,6 +18,7 @@
 #include "openssl_keymaster_enforcement.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <utility>
 
 #include <openssl/cmac.h>
@@ -248,12 +249,12 @@ keymaster_error_t OpenSSLKeymasterEnforcement::GetKeyAgreementKey(
     hwkey_close(hwkey_session);
 
     if (rc < 0) {
-        LOG_E("Getting KAK failed.\n", 0);
+        LOG_E("Getting KAK failed.\n");
         return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     }
 
     if (keySize != kKeyAgreementKeySize) {
-        LOG_E("KAK has the wrong size: %zu != %zu.\n", keySize,
+        LOG_E("KAK has the wrong size: %" PRIu32 " != %zu.\n", keySize,
               kKeyAgreementKeySize);
         return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     }

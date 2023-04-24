@@ -38,7 +38,7 @@ public:
                     size_t operation_table_size)
             : AndroidKeymaster(context, operation_table_size),
               context_(context) {
-        LOG_D("Creating TrustyKeymaster", 0);
+        LOG_D("Creating TrustyKeymaster");
     }
 
     // Replace GetVersion2 handler from AndroidKeymaster.  It's not virtual, but

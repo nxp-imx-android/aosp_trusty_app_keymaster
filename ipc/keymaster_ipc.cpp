@@ -94,7 +94,7 @@ static int wait_to_send(handle_t session, struct ipc_msg* msg) {
 
     rc = wait(session, &ev, INFINITE_TIME);
     if (rc < 0) {
-        LOG_E("failed to wait for outgoing queue to free up\n", 0);
+        LOG_E("failed to wait for outgoing queue to free up");
         return rc;
     }
 
@@ -140,7 +140,7 @@ static long send_response(handle_t chan,
 
         // fatal error
         if (rc < 0) {
-            LOG_E("failed (%d) to send_msg for chan (%d)", rc, chan);
+            LOG_E("failed (%ld) to send_msg for chan (%d)", rc, chan);
             return rc;
         }
         bytes_remaining -= msg_size;
@@ -214,7 +214,7 @@ static long do_dispatch(void (Keymaster::*operation)(const Request&, Response*),
     err = serialize_response(rsp, out, out_size);
     LOG_D("do_dispatch #1: serialized response, %d bytes", *out_size);
     if (err != NO_ERROR) {
-        LOG_E("Error serializing response: %d", err);
+        LOG_E("Error serializing response: %ld", err);
     }
 
     return err;
@@ -248,7 +248,7 @@ static long do_dispatch(Response (Keymaster::*operation)(const Request&),
     err = serialize_response(rsp, out, out_size);
     LOG_D("do_dispatch #2: serialized response, %d bytes", *out_size);
     if (err != NO_ERROR) {
-        LOG_E("Error serializing response: %d", err);
+        LOG_E("Error serializing response: %ld", err);
     }
 
     return err;
@@ -275,7 +275,7 @@ static long do_dispatch(Response (Keymaster::*operation)(),
     err = serialize_response(rsp, out, out_size);
     LOG_D("do_dispatch #3: serialized response, %d bytes", *out_size);
     if (err != NO_ERROR) {
-        LOG_E("Error serializing response: %d", err);
+        LOG_E("Error serializing response: %ld", err);
     }
 
     return err;
@@ -404,7 +404,7 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
         }
     } else if (device->ConfigureCalled()) {
         if (device->get_configure_error() != KM_ERROR_OK) {
-            LOG_E("Previous configure command failed\n", 0);
+            LOG_E("Previous configure command failed\n");
             return ERR_NOT_CONFIGURED;
         } else if (cmd_is_from_bootloader(msg->cmd)) {
             LOG_E("Bootloader command %d not allowed after configure command\n",
@@ -624,7 +624,7 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
 
     case KM_DESTROY_ATTESTATION_IDS:
         // TODO(swillden): Implement this.
-        LOG_E("Destroy attestation IDs is unimplemented.", 0);
+        LOG_E("Destroy attestation IDs is unimplemented.");
         return ERR_NOT_IMPLEMENTED;
 
     case KM_EARLY_BOOT_ENDED:
@@ -687,7 +687,7 @@ static keymaster_chan_ctx* keymaster_ctx_open(handle_t chan,
                                               uuid_t* uuid,
                                               bool secure) {
     if (!keymaster_port_accessible(uuid, secure)) {
-        LOG_E("access denied for client uuid", 0);
+        LOG_E("access denied for client uuid");
         return NULL;
     }
 
@@ -745,13 +745,13 @@ static long handle_msg(keymaster_chan_ctx* ctx) {
 
     // fatal error
     if (rc < 0) {
-        LOG_E("failed to read msg (%d)", rc, chan);
+        LOG_E("failed to read msg (%d)", rc);
         return rc;
     }
     LOG_D("Read %d-byte message", rc);
 
     if (((unsigned long)rc) < sizeof(keymaster_message)) {
-        LOG_E("invalid message of size (%d)", rc, chan);
+        LOG_E("invalid message of size (%d)", rc);
         return ERR_NOT_VALID;
     }
 
@@ -795,7 +795,7 @@ static void keymaster_chan_handler(const uevent_t* ev, void* priv) {
         long rc = handle_msg(ctx);
         if (rc != NO_ERROR) {
             /* report an error and close channel */
-            LOG_E("failed (%d) to handle event on channel %d", rc, ev->handle);
+            LOG_E("failed (%ld) to handle event on channel %d", rc, ev->handle);
             keymaster_ctx_close(ctx);
             return;
         }
@@ -856,7 +856,7 @@ static void dispatch_event(const uevent_t* ev) {
 
     if (ev->event == IPC_HANDLE_POLL_NONE) {
         /* not really an event, do nothing */
-        LOG_E("got an empty event", 0);
+        LOG_E("got an empty event");
         return;
     }
 
@@ -927,20 +927,20 @@ int main(void) {
 
     TrustyLogger::initialize();
 
-    LOG_I("Initializing", 0);
+    LOG_I("Initializing");
 
     // Run the BoringSSL self-tests
     if (!BORINGSSL_self_test()) {
-        LOG_E("BoringSSL self-test: FAILED", 0);
+        LOG_E("BoringSSL self-test: FAILED");
         return ERR_GENERIC;
     } else {
-        LOG_I("BoringSSL self-test: PASSED", 0);
+        LOG_I("BoringSSL self-test: PASSED");
     }
 
     keymaster_srv_ctx ctx;
     rc = keymaster_ipc_init(&ctx);
     if (rc < 0) {
-        LOG_E("failed (%d) to initialize keymaster", rc);
+        LOG_E("failed (%ld) to initialize keymaster", rc);
         return rc;
     }
 
@@ -952,7 +952,7 @@ int main(void) {
 
         rc = wait_any(&event, INFINITE_TIME);
         if (rc < 0) {
-            LOG_E("wait_any failed (%d)", rc);
+            LOG_E("wait_any failed (%ld)", rc);
             break;
         }
 

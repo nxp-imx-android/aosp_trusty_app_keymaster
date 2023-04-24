@@ -108,7 +108,7 @@ SecureStorageManager* SecureStorageManager::get_instance(
     if (instance.session_handle_ != STORAGE_INVALID_SESSION) {
         int rc = storage_end_transaction(instance.session_handle_, false);
         if (rc < 0) {
-            LOG_E("Error: existing session is stale.", 0);
+            LOG_E("Error: existing session is stale.");
             storage_close_session(instance.session_handle_);
             instance.session_handle_ = STORAGE_INVALID_SESSION;
         }
@@ -123,7 +123,7 @@ SecureStorageManager* SecureStorageManager::get_instance(
     if (translate_format && instance.legacy_format) {
         keymaster_error_t err = instance.TranslateLegacyFormat();
         if (err != KM_ERROR_OK) {
-            LOG_E("Failed to translate legacy file format!", 0);
+            LOG_E("Failed to translate legacy file format!");
             instance.CloseSession();
             return nullptr;
         } else {
@@ -485,7 +485,7 @@ keymaster_error_t SecureStorageManager::SetProductId(
     UniquePtr<KeymasterAttributes> km_attributes(km_attributes_p);
 #ifndef KEYMASTER_DEBUG
     if (km_attributes->has_product_id) {
-        LOG_E("Error: Product ID already set!\n", 0);
+        LOG_E("Error: Product ID already set!\n");
         return KM_ERROR_INVALID_ARGUMENT;
     }
 #endif /* KEYMASTER_DEBUG */
@@ -532,7 +532,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
     UniquePtr<AttestationIds> attestation_ids(attestation_ids_p);
     if (request.brand.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Brand ID too large: %d", request.brand.buffer_size());
+        LOG_E("Error: Brand ID too large: %zu", request.brand.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.brand.buffer_size() > 0) {
         attestation_ids->has_brand = true;
@@ -542,7 +542,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.device.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Device ID too large: %d", request.device.buffer_size());
+        LOG_E("Error: Device ID too large: %zu", request.device.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.device.buffer_size() > 0) {
         attestation_ids->has_device = true;
@@ -552,7 +552,8 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.product.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Product ID too large: %d", request.product.buffer_size());
+        LOG_E("Error: Product ID too large: %zu",
+              request.product.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.product.buffer_size() > 0) {
         attestation_ids->has_product = true;
@@ -562,7 +563,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.serial.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Serial number too large: %d",
+        LOG_E("Error: Serial number too large: %zu",
               request.serial.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.serial.buffer_size() > 0) {
@@ -573,7 +574,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.imei.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: IMEI ID too large: %d", request.imei.buffer_size());
+        LOG_E("Error: IMEI ID too large: %zu", request.imei.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.imei.buffer_size() > 0) {
         attestation_ids->has_imei = true;
@@ -583,7 +584,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.meid.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: MEID ID too large: %d", request.meid.buffer_size());
+        LOG_E("Error: MEID ID too large: %zu", request.meid.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.meid.buffer_size() > 0) {
         attestation_ids->has_meid = true;
@@ -593,7 +594,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.manufacturer.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Manufacturer ID too large: %d",
+        LOG_E("Error: Manufacturer ID too large: %zu",
               request.manufacturer.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.manufacturer.buffer_size() > 0) {
@@ -605,7 +606,7 @@ static struct AttestationIdResult ValidateAndSetBaseAttestationIds(
     }
 
     if (request.model.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Model ID too large: %d", request.model.buffer_size());
+        LOG_E("Error: Model ID too large: %zu", request.model.buffer_size());
         return {KM_ERROR_INVALID_ARGUMENT, nullptr};
     } else if (request.model.buffer_size() > 0) {
         attestation_ids->has_model = true;
@@ -623,7 +624,7 @@ keymaster_error_t SecureStorageManager::SetAttestationIdsKM3(
         return result.error;
     }
     if (request.second_imei.buffer_size() > kAttestationIdLengthMax) {
-        LOG_E("Error: Second IMEI ID too large: %d",
+        LOG_E("Error: Second IMEI ID too large: %zu",
               request.second_imei.buffer_size());
         return KM_ERROR_INVALID_ARGUMENT;
     } else if (request.second_imei.buffer_size() > 0) {
@@ -700,7 +701,7 @@ keymaster_error_t SecureStorageManager::DeleteAllAttestationData() {
     }
     int rc = storage_end_transaction(session_handle_, true);
     if (rc < 0) {
-        LOG_E("Error: failed to commit transaction while deleting keys.", 0);
+        LOG_E("Error: failed to commit transaction while deleting keys.");
         CloseSession();
         return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     }
@@ -974,8 +975,7 @@ keymaster_error_t SecureStorageManager::TranslateLegacyFormat() {
     rc = storage_end_transaction(session_handle_, STORAGE_OP_COMPLETE);
     if (rc < 0) {
         LOG_E("Error: failed to commit write transaction to translate file"
-              " format.\n",
-              0);
+              " format.\n");
         return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     }
     return KM_ERROR_OK;
