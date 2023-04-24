@@ -837,7 +837,8 @@ keymaster_error_t SecureStorageManager::DecodeFromFile(
     }
     rc = storage_get_file_size(file.get_file_handle(), &file_size);
     if (rc < 0) {
-        LOG_E("Error: failed to get size of attributes file '%s': %d\n", rc);
+        LOG_E("Error: failed to get size of attributes file '%s': %d\n",
+              filename, rc);
         return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
     }
     FileStatus new_file_status;
