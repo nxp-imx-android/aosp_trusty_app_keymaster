@@ -202,7 +202,8 @@ void TrustyRemoteProvisioningContext::GetHwInfo(
         GetHwInfoResponse* hwInfo) const {
     hwInfo->version = kRkpVersion;
     hwInfo->rpcAuthorName = "Google";
-    hwInfo->supportedEekCurve = 2 /* CURVE_25519 */;
+    hwInfo->supportedEekCurve =
+            kRkpVersion >= 3 ? 0 /* CURVE_NONE */ : 2 /* CURVE_25519 */;
     hwInfo->uniqueId = "Google Trusty Implementation";
     hwInfo->supportedNumKeysInCsr = 20;
 }
