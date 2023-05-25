@@ -43,9 +43,22 @@ GetVersion2Response TrustyKeymaster::GetVersion2(
         break;
 
     default:
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+        // In a fuzzing build, if the fuzzer sends invalid messages we should
+        // log an error and continue, to allow the fuzzer to explore more of the
+        // code.
+        LOG_E("HAL sent invalid message version %d, struggling on as fuzzing build",
+              req.max_message_version);
+        context_->SetKmVersion((req.max_message_version & 0x01)
+                                       ? KmVersion::KEYMINT_3
+                                       : KmVersion::KEYMASTER_4);
+#else
+        // By default, if the HAL service is sending invalid messages then the
+        // safest thing to do is to terminate.
         LOG_E("HAL sent invalid message version %d, crashing",
               req.max_message_version);
         abort();
+#endif
     }
 
     return AndroidKeymaster::GetVersion2(req);
