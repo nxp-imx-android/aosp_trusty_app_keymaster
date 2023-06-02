@@ -188,7 +188,7 @@ public:
     int Resize(storage_off_t newSize) {
         if (!fileHandle_) {
             LOG_E("Attempt to resize invalid file handle");
-            return -ERR_NOT_VALID;
+            return ERR_NOT_VALID;
         }
 
         int rc = storage_set_file_size(*fileHandle_, newSize, 0 /* opflags */);
