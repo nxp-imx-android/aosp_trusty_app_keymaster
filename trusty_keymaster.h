@@ -67,6 +67,10 @@ public:
     void SetWrappedAttestationKey(const SetAttestationKeyRequest& request,
                                   SetAttestationKeyResponse* response);
 
+    // DestroyAttestationIds clears the device IDs.
+    void DestroyAttestationIds(const DestroyAttestationIdsRequest& request,
+                               DestroyAttestationIdsResponse* response);
+
     // SetDeviceIds sets all device IDs in the KM spec under ATTESTATION_ID_*
     // This is a factory provisioning step that should not be callable after
     // provisioning.

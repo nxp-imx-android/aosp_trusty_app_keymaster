@@ -641,6 +641,17 @@ keymaster_error_t SecureStorageManager::SetAttestationIdsKM3(
     return err;
 }
 
+keymaster_error_t SecureStorageManager::ClearAttestationIds() {
+    int rc = storage_delete_file(session_handle_, kAttestationIdsFileName,
+                                 STORAGE_OP_COMPLETE);
+    if (rc < 0 && rc != ERR_NOT_FOUND) {
+        LOG_E("Error: [%d] deleting attestation IDs file", rc);
+        CloseSession();
+        return KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+    }
+    return KM_ERROR_UNIMPLEMENTED;
+}
+
 keymaster_error_t SecureStorageManager::SetAttestationIds(
         const SetAttestationIdsRequest& request) {
     auto result = ValidateAndSetBaseAttestationIds(request);

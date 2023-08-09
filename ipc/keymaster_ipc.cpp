@@ -623,9 +623,9 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx,
                            payload_size, out, out_size);
 
     case KM_DESTROY_ATTESTATION_IDS:
-        // TODO(swillden): Implement this.
-        LOG_E("Destroy attestation IDs is unimplemented.");
-        return ERR_NOT_IMPLEMENTED;
+        LOG_E("Dispatching destroy attestation IDs, size %d", payload_size);
+        return do_dispatch(&TrustyKeymaster::DestroyAttestationIds, msg,
+                           payload_size, out, out_size);
 
     case KM_EARLY_BOOT_ENDED:
         LOG_D("Dispatching KM_EARLY_BOOT_ENDED, size %d", payload_size);

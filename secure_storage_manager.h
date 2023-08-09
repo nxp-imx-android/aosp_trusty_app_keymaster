@@ -186,6 +186,11 @@ public:
     keymaster_error_t SetProductId(const uint8_t product_id[kProductIdSize]);
 
     /**
+     * Clear all attestation IDs for the device.
+     */
+    keymaster_error_t ClearAttestationIds();
+
+    /**
      * Set the attestation IDs for the device. This function can only be used
      * once unless Keymaster is in debug mode.
      */

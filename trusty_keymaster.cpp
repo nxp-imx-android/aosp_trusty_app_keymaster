@@ -125,6 +125,20 @@ void TrustyKeymaster::SetAttestationKey(const SetAttestationKeyRequest& request,
     response->error = ss_manager->WriteKeyToStorage(key_slot, key, key_size);
 }
 
+void TrustyKeymaster::DestroyAttestationIds(
+        const DestroyAttestationIdsRequest& request,
+        DestroyAttestationIdsResponse* response) {
+    if (response == nullptr) {
+        return;
+    }
+    SecureStorageManager* ss_manager = SecureStorageManager::get_instance();
+    if (ss_manager == nullptr) {
+        response->error = KM_ERROR_SECURE_HW_COMMUNICATION_FAILED;
+        return;
+    }
+    response->error = ss_manager->ClearAttestationIds();
+}
+
 void TrustyKeymaster::SetAttestationIds(const SetAttestationIdsRequest& request,
                                         EmptyKeymasterResponse* response) {
     if (response == nullptr) {
