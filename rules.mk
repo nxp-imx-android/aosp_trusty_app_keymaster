@@ -15,6 +15,7 @@
 
 LOCAL_DIR := $(GET_LOCAL_DIR)
 NANOPB_DIR := external/nanopb-c
+LIBCPPBOR_DIR := $(if $(wildcard system/libcppbor),system/libcppbor,external/libcppbor)
 
 MODULE := $(LOCAL_DIR)
 
@@ -148,7 +149,7 @@ MODULE_LIBRARY_DEPS += \
 	trusty/user/base/lib/system_state \
 	trusty/user/base/lib/tipc \
 	external/boringssl \
-	external/libcppbor \
+	$(LIBCPPBOR_DIR) \
 
 # If KEYMASTER_WITH_HWWSK_SUPPORT is set Keymaster will be
 #  compiled with Hardware Wrapped Storage key support
